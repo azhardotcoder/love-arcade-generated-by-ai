@@ -1,6 +1,6 @@
 import {PROMPTS,BOTTLE,ESCAPE,DATE_STAGES} from './couples-games.mjs';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&#39;'}[c]));
-const btn=(a,text,cls='secondary',extra='')=>'<button class="'+cls+'" data-couple-action="'+a+'" '+extra+'>'+text+'</button>';
+const btn=(a,text,cls='secondary',extra='')=>'<button type="button" class="'+cls+'" data-couple-action="'+a+'" '+extra+'>'+text+'</button>';
 const alone=(text)=>'<div class="waiting">'+esc(text)+'</div>';
 const ready=(s,seat,action='ready')=>s.ready[seat]?alone('Waiting for your partner to continue…'):btn(action,'Continue together →','primary');
 const S=(title,kicker,body)=>'<section class="couple-surface"><span class="eyebrow pink">'+kicker+'</span><h2>'+title+'</h2>'+body+'</section>';
