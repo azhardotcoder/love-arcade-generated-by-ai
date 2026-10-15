@@ -6,7 +6,7 @@ const P={
 const N={p:'Pawn',r:'Rook',n:'Knight',b:'Bishop',q:'Queen',k:'King'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const formatClock=ms=>{const seconds=Math.max(0,Math.ceil(ms/1000));const m=Math.floor(seconds/60);const s=seconds%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')};
-export function chessBoardView(s,seat,Chess,selection=null,flip=false,pending=null){
+export function chessBoardView(s,seat,Chess,selection=null,flip=false,pending=null,now=Date.now()){
  if(!s||!Chess)return '<div class="waiting">Preparing the chess engine…</div>';
  const g=chessInstance(Chess,s);if(!g)return '<div class="waiting">Chess position could not be loaded.</div>';
  const mine=seat===s.turn,white=seat===s.white;
@@ -26,11 +26,13 @@ export function chessBoardView(s,seat,Chess,selection=null,flip=false,pending=nu
    (piece?'<span class="chess-piece '+(piece.color==='w'?'white-piece':'black-piece')+'" aria-hidden="true">'+P[piece.color][piece.type]+'</span>':'')+
    (target?'<span class="move-dot '+(piece?'capture':'')+'" aria-hidden="true"></span>':'')+'</button>';
  }).join('')).join('');
- const visible=clockNow(s);
+ const visible=clockNow(s,now);
  const whiteClock=visible[s.white],blackClock=visible[1-s.white];
  const myClock=white?whiteClock:blackClock,opponentClock=white?blackClock:whiteClock;
  const meLabel=white?'White':'Black',opponentLabel=white?'Black':'White';
  const last=s.moves.at(-1);
+ const takenByWhite=s.moves.filter(x=>x.color==='w'&&x.captured).map(x=>P.b[x.captured]).join('');
+ const takenByBlack=s.moves.filter(x=>x.color==='b'&&x.captured).map(x=>P.w[x.captured]).join('');
  const sanRows=[];
  for(let i=0;i<s.moves.length;i+=2)sanRows.push('<div class="move-row"><span class="move-no">'+(Math.floor(i/2)+1)+'.</span><span>'+esc(s.moves[i].san)+'</span><span>'+esc(s.moves[i+1]?.san||'')+'</span></div>');
  const result=s.status==='finished'?'<div class="chess-result"><b>♛ Game finished</b><p>'+esc(s.result)+'</p><small>Ready for a rematch? Both players must agree.</small></div>':'';
@@ -46,6 +48,7 @@ export function chessBoardView(s,seat,Chess,selection=null,flip=false,pending=nu
  '<div class="chess-status" role="status"><span class="chess-status-icon">♞</span><span>'+esc(statusText)+'</span></div>'+
  '</div><aside class="chess-sidebar"><div class="chess-side-header"><span class="eyebrow">CHESS ROYALE</span><h3>One board. Two hearts.</h3><p>Classic rules, real competition, same date night.</p></div>'+
  '<div class="chess-settings"><label for="chess-time">Time control</label><select id="chess-time" '+(s.moves.length||s.status!=='playing'?'disabled':'')+'>'+Object.entries(CONTROLS).map(([k,v])=>'<option value="'+k+'" '+(s.mode===k?'selected':'')+'>'+v.name+'</option>').join('')+'</select><small>Changing the clock resets the board before the first move.</small></div>'+
+ '<div class="chess-captures"><div><small>White captured</small><span>'+esc(takenByWhite||'—')+'</span></div><div><small>Black captured</small><span>'+esc(takenByBlack||'—')+'</span></div></div>'+
  '<div class="chess-moves"><div class="chess-move-title"><b>Moves</b><span>'+s.moves.length+' plies</span></div><div class="move-list" id="chessMoves">'+(sanRows.join('')||'<p class="chess-empty">The opening move is yours…</p>')+'</div></div>'+
  result+offer+
  '<div class="chess-actions"><button data-chess-action="flip" class="chess-small">⇅ Flip board</button><button data-chess-action="pgn" class="chess-small" '+(!s.moves.length?'disabled':'')+'>↧ Copy PGN</button>'+
