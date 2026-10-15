@@ -54,3 +54,28 @@ test('mobile landing page has no critical or serious WCAG violations',async({pag
  const a=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze();
  expect(a.violations.filter(x=>['critical','serious'].includes(x.impact)).map(x=>({id:x.id,impact:x.impact,nodes:x.nodes.length}))).toEqual([]);
 });
+
+test('guided room UX shows invite state and chat backdrop',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.welcome-steps')).toContainText('Create a room');
+ await expect(page.locator('.welcome-steps')).toContainText('Invite your person');
+ await page.getByRole('button',{name:/Create our room/i}).click();
+ await expect(page.locator('#roomGuide')).toBeVisible();
+ await expect(page.locator('#guideTitle')).toContainText('invite your person');
+ await expect(page.locator('#guideShare')).toBeVisible();
+ await page.locator('#chatopen').click();
+ await expect(page.locator('#chatpanel')).toBeVisible();
+ await expect(page.locator('#chatbackdrop')).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(page.locator('#chatpanel')).toBeHidden();
+ await expect(page.locator('#chatbackdrop')).toBeHidden();
+});
+
+test('UX stylesheet and game status hooks are available',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('link[href*="experience.css"]')).toHaveCount(1);
+ const ux=await page.evaluate(async()=>{const r=await fetch('/experience.css');return {status:r.status,content:(await r.text()).length}});
+ expect(ux.status).toBe(200);expect(ux.content).toBeGreaterThan(2000);
+ await expect(page.locator('#gameStatus')).toHaveAttribute('role','status');
+ await expect(page.locator('#gameName')).toHaveCount(1);
+});
