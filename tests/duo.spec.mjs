@@ -39,6 +39,9 @@ test('two browser tabs share approval-based Truth or Dare and chat',async({conte
  await guest.locator('#nickname').fill('Sam');
  await host.locator('#create').click();
  await expect(host.locator('#room')).toBeVisible();
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','waiting');
+ await expect(host.locator('#waitingRoom')).toBeVisible();
+ await expect(host.locator('#lobby')).toBeHidden();
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
  await guest.locator('#roominput').fill(code);
  await guest.locator('#join').click();
@@ -46,9 +49,18 @@ test('two browser tabs share approval-based Truth or Dare and chat',async({conte
  await expect(guest.locator('#theirname')).toHaveText('Alex',{timeout:12000});
  await expect(host.locator('#theirstatus')).toContainText('Online');
  await expect(guest.locator('#theirstatus')).toContainText('Online');
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','lounge');
+ await expect(guest.locator('#room')).toHaveAttribute('data-stage','lounge');
+ await expect(host.locator('#waitingRoom')).toBeHidden();
+ await expect(guest.locator('#waitingRoom')).toBeHidden();
+ await expect(host.locator('#lounge')).toHaveCount(0);
  await host.locator('#featured').click();
  await expect(host.locator('#game')).toBeVisible();
  await expect(guest.locator('#game')).toBeVisible();
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','activity');
+ await expect(guest.locator('#room')).toHaveAttribute('data-stage','activity');
+ await expect(host.locator('#lobby')).toBeHidden();
+ await expect(host.locator('#activityHeading')).toBeVisible();
  await host.locator('[data-do="truth"]').click();
  await expect(guest.locator('[data-do="approve"]')).toHaveCount(0);
  await expect(host.locator('[data-do="complete"]')).toBeVisible();
