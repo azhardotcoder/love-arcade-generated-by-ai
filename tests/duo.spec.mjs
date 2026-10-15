@@ -84,12 +84,15 @@ test('two players play legal chess moves and agree a draw and rematch',async({co
  const chessSource=readFileSync(new URL('../node_modules/chess.js/dist/esm/chess.js',import.meta.url),'utf8');
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
  await context.route('https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm',route=>route.fulfill({status:200,contentType:'application/javascript',headers:{'access-control-allow-origin':'*'},body:chessSource}));
- const host=await context.newPage(),guest=await context.newPage();
- await Promise.all([host.goto('/'),guest.goto('/')]);
+ const host=await context.newPage();
+ await host.goto('/');
  await host.locator('#nickname').fill('White');
- await guest.locator('#nickname').fill('Black');
  await host.locator('#create').click();
+ await expect(host.locator('#waitingRoom')).toBeVisible();
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
+ const guest=await context.newPage();
+ await guest.goto('/');
+ await guest.locator('#nickname').fill('Black');
  await guest.locator('#roominput').fill(code);
  await guest.locator('#join').click();
  await expect(host.locator('#theirstatus')).toContainText('Online');
@@ -146,9 +149,10 @@ test('invalid invite stays on entry screen instead of creating a room',async({pa
 
 test('five new games remain synchronized across two browser players',async({context})=>{
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
- const h=await context.newPage(),g=await context.newPage();
+ const h=await context.newPage();
  await h.goto('/');await h.locator('#nickname').fill('Alex');await h.locator('#create').click();
  const code=(await h.locator('#roomcode').textContent()).replace(/\s/g,'');
+ const g=await context.newPage();
  await g.goto('/#room='+code);
  await expect(g.locator('#theirname')).toHaveText('Alex',{timeout:12000});
  // XOXO: each turn validated, result shared, then both return to library.
@@ -228,9 +232,10 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
  }};
  `.slice(1,-1)});
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
- const host=await context.newPage(),guest=await context.newPage();
+ const host=await context.newPage();
  await host.goto('/');await host.locator('#nickname').fill('Alex');await host.locator('#create').click();
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
+ const guest=await context.newPage();
  await guest.goto('/#room='+code);
  await expect(guest.locator('#theirname')).toHaveText('Alex',{timeout:12000});
  await host.locator('#watchLaunch').click();
@@ -269,9 +274,10 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
 
 test('Watch Together: malformed YouTube URLs are rejected without changing the queue',async({context})=>{
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
- const host=await context.newPage(),guest=await context.newPage();
+ const host=await context.newPage();
  await host.goto('/');await host.locator('#create').click();
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
+ const guest=await context.newPage();
  await guest.goto('/#room='+code);
  await expect(guest.locator('#theirname')).toHaveText('Sweetheart',{timeout:12000});
  await host.locator('#watchLaunch').click();
