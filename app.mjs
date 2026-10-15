@@ -193,7 +193,6 @@ function syncJourney(){
  $('activityHeading').hidden=next!=='activity'||watching;
  $('journeyStep').textContent=next==='waiting'?'PRIVATE WAITING ROOM':next==='lounge'?'THE DATE-NIGHT LOUNGE':'YOUR PRIVATE ACTIVITY';
  $('journeyLive').classList.toggle('is-connected',ready);
- $('journeyLive').lastElementChild; // State label below always reflects the peer connection.
  $('journeyLive').lastChild.textContent=ready?' Together':host?' Waiting':' Connecting';
  $('journeyInvite').hidden=!host&&next==='waiting';
  $('waitingCode').textContent=room.match(/.{1,4}/g)?.join(' ')||'—';
@@ -320,7 +319,7 @@ if(inviteParam){
   $('entryerror').textContent='This invite link is invalid. Ask your partner to share a new one.';
  }
 }
-$('create').onclick=()=>create(true);$('join').onclick=()=>create(false);$('roominput').onkeydown=e=>{if(e.key==='Enter')create(false)};$('invite').onclick=copyInvite;$('journeyInvite').onclick=shareRoom;$('waitingShare').onclick=shareRoom;$('waitingCopy').onclick=copyInvite;
+$('create').onclick=()=>create(true);$('join').onclick=()=>create(false);$('roominput').onkeydown=e=>{if(e.key==='Enter')create(false)};$('invite').onclick=copyInvite;$('journeyInvite').onclick=shareRoom;$('waitingShare').onclick=shareRoom;$('waitingCopy').onclick=copyInvite;$('waitingLeave').onclick=()=>$('leave').click();
 $('leave').onclick=()=>modal('Leave this room?',host?'You are hosting. Leaving ends this room for both players, including the call and chat.':'Your chat and game progress will clear from this device.',()=>leave(true),'Leave room');
 $('help').onclick=()=>modal('How to play','Create a room and share the code with your partner. Both players must keep this page open. There are six games, private session chat, and optional voice calling.\n\nYour partner must accept each voice call and give microphone permission. Rooms and chats are not saved. Your voice is never recorded by this app.\n\nA peer-to-peer connection may fail on restrictive Wi-Fi or mobile networks. Try another network if it does.');
 $('rules').onclick=()=>modal(GAMES[S.game]?.title||'Game rules',({truth:'Choose Truth or Dare on your turn. Complete the task, then your partner approves or asks you to retry. Only approval changes turns. Skip freely.',quiz:'Both write answers privately and reveal together. Both must tap ready for the next round.',rather:'Both choose one of two romantic options secretly. Reveal your choices together.',notes:'Both write secret love notes that reveal together once submitted.',match:'Flip two cards on your turn. Matched pairs stay revealed; if they do not match, your partner takes over.'})[S.game]||'Pick a game.');
