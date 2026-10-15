@@ -197,3 +197,73 @@ test('five new games remain synchronized across two browser players',async({cont
  await expect(h.locator('.couple-surface')).toContainText('What are we eating?');
  await h.close();await g.close();
 });
+
+
+test('Watch Together: two players queue videos, ready up, synchronize playback and react',async({context})=>{
+ await context.addInitScript({content:String.raw\`
+ window.YT={Player:class {
+  constructor(target,opts){this.options=opts;this.id=target;this.current=0;this.duration=360;this.status=5;this.videoId=opts.videoId;setTimeout(()=>opts.events.onReady?.({target:this}),15)}
+  cueVideoById(id){this.videoId=id;this.current=0;this.status=5}
+  getCurrentTime(){return this.current}
+  getDuration(){return this.duration}
+  getPlayerState(){return this.status}
+  seekTo(t){this.current=t}
+  playVideo(){this.status=1}
+  pauseVideo(){this.status=2}
+  destroy(){this.status=-1}
+ }};
+ \`.slice(1,-1)});
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
+ const host=await context.newPage(),guest=await context.newPage();
+ await host.goto('/');await host.locator('#nickname').fill('Alex');await host.locator('#create').click();
+ const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
+ await guest.goto('/#room='+code);
+ await expect(guest.locator('#theirname')).toHaveText('Alex',{timeout:12000});
+ await host.locator('#watchLaunch').click();
+ await expect(host.locator('#watch')).toBeVisible();
+ await expect(guest.locator('#watch')).toBeVisible();
+ await expect(host.locator('#lobby')).toBeHidden();
+ await guest.locator('#watchUrl').fill('https://youtu.be/jfKfPfyJRdk');
+ await guest.locator('#watchAdd').click();
+ await expect(host.locator('.watch-queue-item')).toHaveCount(1);
+ await expect(guest.locator('.watch-queue-item')).toHaveCount(1);
+ await expect(host.locator('#watchReady')).toBeEnabled();
+ await host.locator('#watchReady').click();
+ await expect(guest.locator('#watchStatus')).toContainText('1/2 confirmed');
+ await guest.locator('#watchReady').click();
+ await expect(host.locator('#watchStatus')).toContainText('Watching together');
+ await expect(guest.locator('#watchStatus')).toContainText('Watching together');
+ await host.locator('#watchPlay').click();
+ await expect(guest.locator('#watchPlay')).toContainText('Play');
+ await guest.locator('#watchPlay').click();
+ await expect(host.locator('#watchPlay')).toContainText('Pause');
+ await guest.locator('#watchSeek').fill('65');
+ await expect(host.locator('#watchClock')).toContainText('1:05',{timeout:6000});
+ await host.locator('[data-watch-react="❤️"]').click();
+ await expect(guest.locator('.watch-float')).toHaveCount(1);
+ await host.locator('#watchUrl').fill('https://youtu.be/5qap5aO4i9A');
+ await host.locator('#watchAdd').click();
+ await expect(guest.locator('.watch-queue-item')).toHaveCount(2);
+ await guest.locator('#watchNext').click();
+ await expect(host.locator('#watchReady')).toBeEnabled();
+ await expect(host.locator('#watchStatus')).toContainText('Ready check');
+ await host.locator('#watchClose').click();
+ await expect(guest.locator('#lobby')).toBeVisible();
+ await expect(host.locator('#watch')).toBeHidden();
+ await host.close();await guest.close();
+});
+
+test('Watch Together: malformed YouTube URLs are rejected without changing the queue',async({context})=>{
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
+ const host=await context.newPage(),guest=await context.newPage();
+ await host.goto('/');await host.locator('#create').click();
+ const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
+ await guest.goto('/#room='+code);
+ await expect(guest.locator('#theirname')).toHaveText('Sweetheart',{timeout:12000});
+ await host.locator('#watchLaunch').click();
+ await guest.locator('#watchUrl').fill('https://youtube.com.evil.example/watch?v=jfKfPfyJRdk');
+ await guest.locator('#watchAdd').click();
+ await expect(guest.locator('#watchQueue')).toContainText('Nothing queued yet');
+ await expect(guest.locator('#toast')).toContainText('valid YouTube');
+ await host.close();await guest.close();
+});
