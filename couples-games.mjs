@@ -38,7 +38,7 @@ export function reduceCouple(src,a,seat,now=Date.now()){
  const s=structuredClone(src),op=a.action;
  if(s.type==='pictionary'){
   if(op==='stroke'){
-   if(s.phase!=='draw'||s.drawer!==seat||s.strokes.length>=350||now>s.endsAt)return null;
+   if(s.phase!=='draw'||s.drawer!==seat||s.strokes.length>=75||now>s.endsAt)return null;
    if(!Array.isArray(a.points)||a.points.length<1||a.points.length>80||!a.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(n=>Number.isFinite(n)&&n>=0&&n<=1)))return null;
    if(!['#fff1ed','#ff89ba','#ffc47b','#aa96ff','#8fe3c0','#37253e'].includes(a.color)||![3,6,10,15].includes(a.width))return null;
    s.strokes.push({points:a.points,color:a.color,width:a.width});return s;
