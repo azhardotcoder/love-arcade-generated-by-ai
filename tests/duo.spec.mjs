@@ -190,6 +190,7 @@ test('five new games remain synchronized across two browser players',async({cont
  await expect(g.locator('#loveCanvas')).toBeVisible();
  await expect(h.locator('.secret-prompt')).toBeVisible();
  await expect(g.locator('.secret-prompt')).toHaveCount(0);
+ await h.locator('#loveCanvas').scrollIntoViewIfNeeded();
  const boardBox=await h.locator('#loveCanvas').boundingBox();
  await h.mouse.move(boardBox.x+35,boardBox.y+35);
  await h.mouse.down();
