@@ -176,7 +176,48 @@ function trimMessages(){messages=messages.slice(-100);messageIds=new Set(message
 function addSystem(text){messages.push({id:uid(),who:-1,text,time:stamp()});trimMessages();drawChat()}
 function apply(action,seat){const next=reduce(S,action,seat);if(!next)return;const gained=next.hearts>S.hearts;S=next;send({type:'snapshot',state:viewForSeat(S,1)});if(S.game==='chess')chessSelection=null;renderGame();presence();if(gained)celebrate();clearTimeout(hideTimer);hideTimer=null;if(S.game==='match'&&S.open.length===2){const rev=S.rev;hideTimer=setTimeout(()=>{if(host&&online())apply({type:'hide',epoch:S.epoch,round:S.round,rev},0)},1400)}}
 function act(a){if(!online()){toast('Wait until your partner is connected.');return}const data={epoch:S.epoch,round:S.round,...a};if(host)apply(data,0);else send({type:'action',action:data})}
-function presence(){if(!active)return;const is=online();$('myname').textContent=name;$('myavatar').textContent=name[0]?.toUpperCase()||'Y';$('theirname').textContent=partner;$('theiravatar').textContent=connected||guestSession?partner[0]?.toUpperCase()||'?':'?';const myOnline=navigator.onLine;const myStatus=$('mystatus');const theirStatus=$('theirstatus');
+
+/**
+ * One connected peer session, three visually distinct screens.
+ * Avoid full navigation/reloads: that would terminate the WebRTC room.
+ */
+function syncJourney(){
+ if(!active)return;
+ const watching=Boolean(S.watch?.open);
+ const playing=Boolean(S.game);
+ const ready=online();
+ const next=(watching||playing)?'activity':ready?'lounge':'waiting';
+ const el=$('room'),changed=el.dataset.stage!==next;
+ el.dataset.stage=next;
+ $('waitingRoom').hidden=next!=='waiting';
+ $('activityHeading').hidden=next!=='activity'||watching;
+ $('journeyStep').textContent=next==='waiting'?'PRIVATE WAITING ROOM':next==='lounge'?'THE DATE-NIGHT LOUNGE':'YOUR PRIVATE ACTIVITY';
+ $('journeyLive').classList.toggle('is-connected',ready);
+ $('journeyLive').lastElementChild; // State label below always reflects the peer connection.
+ $('journeyLive').lastChild.textContent=ready?' Together':host?' Waiting':' Connecting';
+ $('journeyInvite').hidden=!host&&next==='waiting';
+ $('waitingCode').textContent=room.match(/.{1,4}/g)?.join(' ')||'—';
+ const guestWaiting=!host&&next==='waiting';
+ $('waitingTitle').innerHTML=guestWaiting?'Finding <em>your person.</em>':'Good things are <em>better together.</em>';
+ $('waitingDescription').textContent=guestWaiting?'We’re connecting you to your private room. Keep this page open for a moment.':'Your room is ready. Invite your favorite person and we’ll bring you into your private game lounge as soon as they join.';
+ $('waitingHint').textContent=guestWaiting?'Connecting to your partner…':'Waiting for player two to arrive…';
+ $('waitingCodeGroup').hidden=guestWaiting;
+ $('waitingShare').hidden=guestWaiting;
+ if(next==='activity'&&!watching)$('activityTitle').textContent=GAMES[S.game]?.title||'Your moment';
+ if(next==='waiting')$('dock').hidden=true;
+ else $('dock').hidden=false;
+ if(changed){lastExperienceSignature='';window.scrollTo({top:0,behavior:'instant'})}
+}
+async function shareRoom(){
+ const link=location.origin+location.pathname+'#room='+room;
+ if(navigator.share){
+  try{await navigator.share({title:'A little date night? ♡',text:'Come join me in Love Arcade.',url:link});return}
+  catch(e){if(e.name==='AbortError')return}
+ }
+ copyInvite();
+}
+
+function presence(){if(!active)return;syncJourney();const is=online();$('myname').textContent=name;$('myavatar').textContent=name[0]?.toUpperCase()||'Y';$('theirname').textContent=partner;$('theiravatar').textContent=connected||guestSession?partner[0]?.toUpperCase()||'?':'?';const myOnline=navigator.onLine;const myStatus=$('mystatus');const theirStatus=$('theirstatus');
  myStatus.className='presence-label '+(myOnline?'is-online':'is-offline');
  myStatus.textContent=myOnline?(document.hidden?'● Online · Away':'● Online'):'● Offline';
  const partnerState=is?'is-online':(connected||guestSession?'is-offline':'is-waiting');
@@ -228,7 +269,7 @@ function celebrate(){
 }
 function render(){ $('gamecards').innerHTML=Object.entries(GAMES).map(([id,g],i)=>'<button class="gamecard '+g.theme+'" data-game="'+id+'"><span class="tagline">0'+(i+1)+' / '+g.label+'</span><span class="arrow">↗</span><span class="art">'+g.icon+'</span><h3>'+g.title+'</h3><p>'+g.desc+'</p></button>').join('');renderGame();drawChat();presence();updateExperience()}
 const button=(k,s,cl='primary',extra='')=>'<button class="'+cl+'" data-do="'+k+'" '+extra+'>'+s+'</button>';
-function renderGame(){const g=S.game;watchController.render();$('lobby').hidden=!!g||!!S.watch?.open;$('game').hidden=!g||!!S.watch?.open;if(!g){$('gamebody').replaceChildren();return}if(PACK_IDS.includes(g)){displayCouple();return}if(g==='chess'&&!ChessCtor){$('gamebody').innerHTML='<div class="waiting">Loading professional chess engine…</div>';loadChess().catch(()=>{});return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
+function renderGame(){const g=S.game;watchController.render();syncJourney();$('lobby').hidden=!!g||!!S.watch?.open;$('game').hidden=!g||!!S.watch?.open;if(!g){$('gamebody').replaceChildren();return}if(PACK_IDS.includes(g)){displayCouple();return}if(g==='chess'&&!ChessCtor){$('gamebody').innerHTML='<div class="waiting">Loading professional chess engine…</div>';loadChess().catch(()=>{});return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
 if(g==='truth'){h+='<h2>Truth or Dare</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span><span class="fineprint">Approval required before switching turns</span></div><div class="steps"><span class="'+(S.phase==='choose'?'active':'')+'">01 CHOOSE</span><span class="'+(S.phase==='task'?'active':'')+'">02 COMPLETE</span><span class="'+(S.phase==='approval'?'active':'')+'">03 APPROVE</span></div>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';if(S.phase==='choose')h+=mine?'<p class="subtitle">Be honest, be brave, be you.</p><div class="choices">'+button('truth','♡ Truth<small>Open up a little.</small>','choice')+button('dare','✧ Dare<small>Make a little magic.</small>','choice')+'</div>':'<div class="waiting">Your partner is choosing Truth or Dare…</div>';else{h+='<span class="eyebrow pink">'+esc(S.kind.toUpperCase())+'</span><h2>'+esc(S.task)+'</h2>';if(S.reply)h+='<div class="answerbox"><small>THE ANSWER</small><p>'+esc(S.reply)+'</p></div>';if(S.phase==='task')h+=mine?ta('Optional: type your answer or use voice/chat',500)+'<div class="gameactions">'+button('complete','✓ I completed it')+button('skip','Skip (no penalty)','secondary')+'</div>':'<div class="waiting">'+esc(partner)+' is completing the task…</div>';else h+=mine?'<div class="waiting">Waiting for partner approval before turns switch.</div><div class="gameactions">'+button('skip','Skip instead','secondary')+'</div>':'<p class="subtitle">Did they complete the challenge?</p><div class="gameactions">'+button('approve','✓ Approve & switch turns')+button('retry','Try again','secondary')+'</div>'}h+='<p class="fineprint">You can always skip. There is never a penalty.</p>'}
 if(['quiz','rather','notes'].includes(g)){const question=g==='quiz'?QUESTIONS[(S.round-1)%QUESTIONS.length]:g==='notes'?'Tell them something beautiful.':'What would you rather?';h+='<h2>'+esc(question)+'</h2><p class="subtitle">Both answers stay hidden until you each submit.</p>';if(S.phase==='reveal'){const options=g==='rather'?RATHER[(S.round-1)%RATHER.length]:null;h+='<p class="reveal-title">Two hearts, one reveal.</p>';for(const i of [seat,1-seat])h+='<div class="answerbox"><small>'+(i===seat?'YOU':esc(partner).toUpperCase())+'</small><p>'+esc(options?options[S.answers[i]]:S.answers[i])+'</p></div>';h+=S.ready[seat]?'<div class="waiting">Waiting for your partner to continue…</div>':button('next','Ready for next round')}else if(S.answers[seat]!==null)h+='<div class="waiting">Your answer is sealed. Waiting for your partner…</div>';else if(g==='rather')h+='<div class="choices">'+RATHER[(S.round-1)%RATHER.length].map((x,i)=>button('option',esc(x),'choice','data-value="'+i+'"')).join('')+'</div>';else h+=ta(g==='notes'?'Write your secret love note':'Share your answer',g==='notes'?1000:500)+button('answer',g==='notes'?'Seal my love note':'Lock my answer')}
 if(g==='chess'){
@@ -250,7 +291,7 @@ function resendPendingMessages(){
  send({type:'message',id:m.id,text:m.text});
 }
 async function copyInvite(){const link=location.origin+location.pathname+'#room='+room;try{await navigator.clipboard.writeText(link);toast('Invite copied. Send it to your partner!')}catch{modal('Copy this invite',link)}}
-function leave(sendNotice=true){if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';$('welcome').hidden=false;$('room').hidden=true;$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
+function leave(sendNotice=true){if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';$('welcome').hidden=false;$('room').hidden=true;$('room').dataset.stage='waiting';$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
 function refreshVoice(){const states={off:'Voice is off',request:'Requesting microphone…',outgoing:'Ringing your partner…',incoming:'Incoming voice call',connecting:'Connecting voice…',connected:micMuted?'Your mic is muted':'Voice connected'};$('voicestate').textContent=states[voice];$('voicedot').className='voice-dot'+(voice==='connected'?' live':'');$('voicedetail').textContent=voice==='connected'?partnerMicMuted?'Partner mic muted':playbackBlocked?'Tap Sound to enable playback':'Live, private audio':voice==='off'?'Stay close, even from afar':'Microphone consent required';$('callbanner').hidden=voice!=='incoming';$('callinvite').textContent=partner+' wants to talk 💗';$('call').disabled=!online()||voice!=='off';$('hangup').disabled=voice==='off';$('mic').disabled=!(stream&&stream.getAudioTracks().some(track=>track.readyState==='live'));$('speaker').disabled=voice!=='connected';$('mic').setAttribute('aria-pressed',String(micMuted));$('speaker').setAttribute('aria-pressed',String(soundMuted));$('mic').innerHTML=svg(micMuted?'micoff':'mic')+'<span>'+(micMuted?'Unmute':'Mute')+'</span>';$('speaker').innerHTML=svg(soundMuted?'voloff':'volume')+'<span>'+(soundMuted?'Unmute':'Sound')+'</span>'}
 function stopVoice(notify=true){if(notify&&voiceId)send({type:'voice-end',id:voiceId});voiceToken++;clearTimeout(callTimeout);const c=call;call=null;const s=stream;stream=null;s?.getTracks().forEach(t=>{t.onended=null;t.stop()});audio.pause();audio.srcObject=null;c?.close();voice='off';voiceId='';micMuted=false;soundMuted=false;partnerMicMuted=false;playbackBlocked=false;refreshVoice()}
 async function microphone(){if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('Microphone requires HTTPS and a supported browser');return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false})}
@@ -279,7 +320,7 @@ if(inviteParam){
   $('entryerror').textContent='This invite link is invalid. Ask your partner to share a new one.';
  }
 }
-$('create').onclick=()=>create(true);$('join').onclick=()=>create(false);$('roominput').onkeydown=e=>{if(e.key==='Enter')create(false)};$('invite').onclick=copyInvite;
+$('create').onclick=()=>create(true);$('join').onclick=()=>create(false);$('roominput').onkeydown=e=>{if(e.key==='Enter')create(false)};$('invite').onclick=copyInvite;$('journeyInvite').onclick=shareRoom;$('waitingShare').onclick=shareRoom;$('waitingCopy').onclick=copyInvite;
 $('leave').onclick=()=>modal('Leave this room?',host?'You are hosting. Leaving ends this room for both players, including the call and chat.':'Your chat and game progress will clear from this device.',()=>leave(true),'Leave room');
 $('help').onclick=()=>modal('How to play','Create a room and share the code with your partner. Both players must keep this page open. There are six games, private session chat, and optional voice calling.\n\nYour partner must accept each voice call and give microphone permission. Rooms and chats are not saved. Your voice is never recorded by this app.\n\nA peer-to-peer connection may fail on restrictive Wi-Fi or mobile networks. Try another network if it does.');
 $('rules').onclick=()=>modal(GAMES[S.game]?.title||'Game rules',({truth:'Choose Truth or Dare on your turn. Complete the task, then your partner approves or asks you to retry. Only approval changes turns. Skip freely.',quiz:'Both write answers privately and reveal together. Both must tap ready for the next round.',rather:'Both choose one of two romantic options secretly. Reveal your choices together.',notes:'Both write secret love notes that reveal together once submitted.',match:'Flip two cards on your turn. Matched pairs stay revealed; if they do not match, your partner takes over.'})[S.game]||'Pick a game.');
