@@ -55,3 +55,23 @@ export function reduce(state,a,seat){
  }else return null;
  s.rev++;return s
 }
+
+/**
+ * Publish only information the receiving player is allowed to see.
+ * This prevents the hidden memory deck and unrevealed written choices
+ * from appearing in the guest's network messages / dev tools.
+ * The host remains the trusted authority for all state mutations.
+ */
+export function viewForSeat(state,seat) {
+ if (![0,1].includes(seat)) throw new TypeError('Invalid player seat');
+ const visible=structuredClone(state);
+ if (visible.game==='match') {
+  visible.board=visible.board.map((symbol,index)=>
+    visible.found.includes(index)||visible.open.includes(index)?symbol:null);
+ }
+ if (['quiz','rather','notes'].includes(visible.game)&&visible.phase!=='reveal') {
+  visible.answers[1-seat]=null;
+ }
+ delete visible.used;
+ return visible;
+}
