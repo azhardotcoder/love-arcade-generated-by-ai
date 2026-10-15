@@ -100,6 +100,7 @@ test('presence indicators use green online, red offline and waiting state',async
  await expect(page.locator('#room')).toBeVisible();
  await expect(page.locator('#mystatus')).toHaveClass(/is-online/);
  await expect(page.locator('#theirstatus')).toHaveClass(/is-waiting/);
- await page.evaluate(()=>window.dispatchEvent(new Event('offline')));
+ await page.context().setOffline(true);
  await expect(page.locator('#mystatus')).toHaveClass(/is-offline/);
+ await page.context().setOffline(false);
 });
