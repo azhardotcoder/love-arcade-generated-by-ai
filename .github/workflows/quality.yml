@@ -50,8 +50,8 @@ jobs:
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/love-arcade-http.log 2>&1 &
           sleep 2
           curl -fsS http://127.0.0.1:4173/ > /dev/null
-      - name: Run mobile browser tests and accessibility audit
-        run: npx playwright test tests/browser.spec.mjs --project=chromium --workers=1 --reporter=line
+      - name: Run mobile UX, accessibility and two-player integration tests
+        run: npx playwright test tests/browser.spec.mjs tests/duo.spec.mjs --project=chromium --workers=1 --reporter=line
       - name: Store browser test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
