@@ -1,13 +1,13 @@
 # Love Arcade 💗
 
-A lightweight, mobile-first date-night arcade for two players. Created by **azhardotcoder**.
+A lightweight, mobile-first six-game date-night arcade for two players. Created by **azhardotcoder**.
 
 **Live site:** https://love-arcade-generated-by-ai.vercel.app/  
 **Repository:** https://github.com/azhardotcoder/love-arcade-generated-by-ai
 
 ## Features
 
-- Truth or Dare with server-like **host-authoritative** approval and turn switching, retry, and optional skip.
+- Chess Royale with legal chess.js moves, check/checkmate, castling, en passant, pawn promotion, rapid/blitz/classic clocks, takebacks, draw offers, resignation, rematches, move list and PGN export.\n- Truth or Dare with server-like **host-authoritative** approval and turn switching, retry, and optional skip.
 - Love Quiz, Would You Rather, secret Love Notes, and cooperative Heart Match.
 - Two-person invite-only sessions using a 12-character room code and PeerJS WebRTC data channels.
 - Session chat with delivery receipts and reconnect replay, optional voice, microphone mute, speaker mute, and hang-up.
@@ -18,13 +18,13 @@ A lightweight, mobile-first date-night arcade for two players. Created by **azha
 
 The site is static: `index.html`, `style.css`, and `app.mjs` are deployed to Vercel. `engine.mjs` holds pure game logic and is also imported by Node tests.
 
-There is **no application database**. The room host maintains game state and validates changes coming from the guest. WebRTC connections carry chat and game updates. PeerJS's public signaling infrastructure assists discovery; peer-to-peer connections sometimes require relay infrastructure depending on networking.
+There is **no application database**. Chess move validation is performed by the room host. Both clients see synchronized board state, moves, results and clocks. The host remains authoritative for game timers; guest clock rendering accounts for approximate clock skew. The room host maintains game state and validates changes coming from the guest. WebRTC connections carry chat and game updates. PeerJS's public signaling infrastructure assists discovery; peer-to-peer connections sometimes require relay infrastructure depending on networking.
 
 The host intentionally sends seat-specific snapshots. Unrevealed card faces and answers are not included in the guest's data messages. **This is not a cheat-proof competitive game**: the host controls game state and can inspect its own memory in developer tools.
 
 ## Run locally
 
-Node.js 20+ recommended.
+Node.js 20+ recommended. Chess Royale loads the pinned BSD-2-Clause chess.js rules engine on demand when a player selects Chess.
 
 ```sh
 python3 -m http.server 4173
