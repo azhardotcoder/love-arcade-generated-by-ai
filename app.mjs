@@ -145,8 +145,9 @@ if(d.type==='denied'&&!host){blocked=true;connecting=false;toast(String(d.reason
 if(!connected)return;
 if(d.type==='watch-reaction'){
  if(S.watch?.open&&d.epoch===S.epoch&&REACTIONS.includes(d.emoji)&&stamp()-lastRemoteReaction>230){
-  lastRemoteReaction=stamp();watchController.reaction(d.emoji);
-  if(host)send({type:'watch-reaction',emoji:d.emoji,epoch:S.epoch});
+  lastRemoteReaction=stamp();
+  if(host){watchController.reaction(d.emoji);send({type:'watch-reaction',emoji:d.emoji,epoch:S.epoch,origin:1})}
+  else if(d.origin!==1)watchController.reaction(d.emoji);
  }
  return;
 }
