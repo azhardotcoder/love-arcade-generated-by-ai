@@ -153,7 +153,9 @@ test('five new games remain synchronized across two browser players',async({cont
  await h.goto('/');await h.locator('#nickname').fill('Alex');await h.locator('#create').click();
  const code=(await h.locator('#roomcode').textContent()).replace(/\s/g,'');
  const g=await context.newPage();
- await g.goto('/#room='+code);
+ await g.goto('/');
+ await g.locator('#roominput').fill(code);
+ await g.locator('#join').click();
  await expect(g.locator('#theirname')).toHaveText('Alex',{timeout:12000});
  // XOXO: each turn validated, result shared, then both return to library.
  await h.locator('[data-game=xoxo]').click();
@@ -236,7 +238,9 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
  await host.goto('/');await host.locator('#nickname').fill('Alex');await host.locator('#create').click();
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
  const guest=await context.newPage();
- await guest.goto('/#room='+code);
+ await guest.goto('/');
+ await guest.locator('#roominput').fill(code);
+ await guest.locator('#join').click();
  await expect(guest.locator('#theirname')).toHaveText('Alex',{timeout:12000});
  await host.locator('#watchLaunch').click();
  await expect(host.locator('#watch')).toBeVisible();
@@ -278,7 +282,9 @@ test('Watch Together: malformed YouTube URLs are rejected without changing the q
  await host.goto('/');await host.locator('#create').click();
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
  const guest=await context.newPage();
- await guest.goto('/#room='+code);
+ await guest.goto('/');
+ await guest.locator('#roominput').fill(code);
+ await guest.locator('#join').click();
  await expect(guest.locator('#theirname')).toHaveText('Sweetheart',{timeout:12000});
  await host.locator('#watchLaunch').click();
  await guest.locator('#watchUrl').fill('https://youtube.com.evil.example/watch?v=jfKfPfyJRdk');
