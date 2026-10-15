@@ -1,11 +1,11 @@
 {
   "name": "love-arcade",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
   "description": "Two-player romantic browser arcade",
   "scripts": {
-    "check": "node --check app.mjs && node --check engine.mjs && node --check chess.mjs && node --check chess-ui.mjs",
+    "check": "node --check app.mjs && node --check engine.mjs && node --check chess.mjs && node --check chess-ui.mjs && node --check couples-games.mjs && node --check couples-ui.mjs && node --check watch.mjs && node --check watch-client.mjs",
     "test": "node --test tests/*.test.mjs",
     "verify": "npm run check && npm test"
   },
