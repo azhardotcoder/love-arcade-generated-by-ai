@@ -7,13 +7,34 @@ A lightweight, mobile-first eleven-game date-night arcade for two players. Creat
 
 ## Features
 
-- **Love Pictionary:** live shared drawing previews, private artist prompts, guess scoring, timed rounds, alternated roles.\n- **XOXO Battle:** turn-based hearts-versus-kisses grid, outcome checks, scorekeeping and two-player rematches.\n- **Spin the Love Bottle:** four challenge moods, synchronized reveal, partner approval/retry and skip.\n- **Together We Escape:** four cooperative rooms with distinct clues, hints, answers and mutual progression.\n- **Dream Date Builder:** five date stages, hidden independent selections and shared reveals.\n
-- Chess Royale with legal chess.js moves, check/checkmate, castling, en passant, pawn promotion, rapid/blitz/classic clocks, takebacks, draw offers, resignation, rematches, move list and PGN export.\n- Truth or Dare with server-like **host-authoritative** approval and turn switching, retry, and optional skip.
+- **Love Pictionary:** live shared drawing previews, private artist prompts, guess scoring, timed rounds, alternated roles.
+- **XOXO Battle:** turn-based hearts-versus-kisses grid, outcome checks, scorekeeping and two-player rematches.
+- **Spin the Love Bottle:** four challenge moods, synchronized reveal, partner approval/retry and skip.
+- **Together We Escape:** four cooperative rooms with distinct clues, hints, answers and mutual progression.
+- **Dream Date Builder:** five date stages, hidden independent selections and shared reveals.
+
+- Chess Royale with legal chess.js moves, check/checkmate, castling, en passant, pawn promotion, rapid/blitz/classic clocks, takebacks, draw offers, resignation, rematches, move list and PGN export.
+- Truth or Dare with server-like **host-authoritative** approval and turn switching, retry, and optional skip.
 - Love Quiz, Would You Rather, secret Love Notes, and cooperative Heart Match.
 - Two-person invite-only sessions using a 12-character room code and PeerJS WebRTC data channels.
 - Session chat with delivery receipts and reconnect replay, optional voice, microphone mute, speaker mute, and hang-up.
 - Online/offline/away awareness and responsive dark UI.
 - SEO metadata, structured data, sitemap, robots, Open Graph preview, security headers, and progressive-web-app manifest.
+
+## Watch Together
+
+The **Together Lounge** is a shared YouTube watching experience, accessible within the existing two-player room. It is a separate room activity and **does not replace or add to the 11 playable games**.
+
+- A shared video queue with up to 24 YouTube video links; both players may add, select, skip or remove videos.
+- Both partners confirm **I'm ready** before the synchronized video starts.
+- Host-authoritative synchronized play, pause, seek and position changes. The app estimates host/guest clock skew from room ping messages and periodically corrects playback drift.
+- When a new video is selected, the ready-check resets. Reconnecting players receive the current queue, selected video, readiness state and host playback position.
+- Live floating emoji reactions relay through the existing PeerJS room connection. Existing voice/chat controls remain accessible.
+- Responsive player and watchlist UI, including a manual **Tap to start playback** fallback where mobile autoplay is blocked.
+
+Playback uses the [official YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference). Each browser fetches authorized playback directly from YouTube: the Love Arcade host does not rebroadcast audio/video or bypass DRM. Only YouTube videos that permit embedding will play; YouTube may reject particular videos, geographic regions or age restrictions. Video playback may be approximate rather than frame-perfect, and voice/audio can be affected by browser autoplay and microphone rules.
+
+The room stores the queue and playback state only in the host browser's memory. It is reset when the host closes/leaves the room. No account or permanent watchlist storage is implemented. See [Privacy & Safety](./privacy.html) for third-party data processing.
 
 ## Architecture
 
