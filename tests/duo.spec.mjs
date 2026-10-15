@@ -127,6 +127,8 @@ test('invite URL automatically joins room without tapping Join',async({context})
  await expect(host.locator('#room')).toBeVisible();
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
  const guest=await context.newPage();
+ // Simulate a different device with no nickname saved by the hosting player.
+ await guest.addInitScript(()=>{try{localStorage.removeItem('la-name')}catch{}});
  await guest.goto('/#room='+code);
  await expect(guest.locator('#room')).toBeVisible({timeout:12000});
  await expect(guest.locator('#theirname')).toHaveText('Host',{timeout:12000});
