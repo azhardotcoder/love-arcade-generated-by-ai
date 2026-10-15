@@ -1,0 +1,40 @@
+
+/* Chess Royale: responsive, chess-first controls with distinct board and sidebar. */
+.chess-layout{display:grid;grid-template-columns:minmax(0,620px) minmax(250px,310px);justify-content:center;gap:22px;align-items:start;margin:0 auto 32px;max-width:1030px}
+.chess-play,.chess-sidebar{min-width:0}.chess-board-wrap{aspect-ratio:1;width:100%;box-shadow:0 25px 60px #0008;border:8px solid #382639;border-radius:8px;overflow:hidden}
+.chess-board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));width:100%;height:100%;touch-action:manipulation}
+.chess-square{display:grid;place-items:center;position:relative;border:0;border-radius:0;min-width:0;min-height:0;padding:0;aspect-ratio:1;overflow:hidden}
+.chess-square.light{background:#eadad1;color:#513d4c}.chess-square.dark{background:#9c788b;color:#f6e3e5}
+.chess-square.last-move.light{background:#f8d3a0}.chess-square.last-move.dark{background:#c59b8c}
+.chess-square.selected{background:#f8a9c0!important;outline:3px solid #ffe8eb;outline-offset:-3px;z-index:3}
+.chess-square.checked{background:#ef6b7c!important}
+.chess-square:focus-visible{outline:3px solid #27213e;outline-offset:-4px;z-index:4}
+.chess-piece{font-family:"Segoe UI Symbol","DejaVu Sans",serif;position:relative;z-index:2;line-height:1;font-size:clamp(27px,5.1vw,57px);font-weight:400;user-select:none;pointer-events:none;transition:transform .14s}
+.chess-square:hover .chess-piece{transform:scale(1.07)}
+.white-piece{color:#fffbf6;text-shadow:0 2px 1px #1b1526,2px 0 1px #433444,-2px 0 1px #433444,0 -2px 1px #433444,0 3px 6px #0009}
+.black-piece{color:#24212b;text-shadow:0 1px 1px #fff6,1px 0 1px #ffffff57}
+.coordinate{position:absolute;z-index:3;font:600 clamp(9px,1.1vw,12px) system-ui;pointer-events:none;opacity:.8}.coordinate.rank{top:3px;left:4px}.coordinate.file{bottom:2px;right:4px}
+.move-dot{position:absolute;z-index:3;height:27%;width:27%;border-radius:50%;background:#1f172957;pointer-events:none}
+.move-dot.capture{height:84%;width:84%;background:none;border:5px solid #ffeed0aa}
+.chess-playerstrip{display:flex;align-items:center;gap:11px;padding:9px 5px 13px}
+.chess-playerstrip:has(+.chess-status){padding:14px 5px 8px}
+.chess-avatar{height:37px;width:37px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(145deg,#8c4e6c,#442b53);color:#ffe1e9;font-size:24px}
+.chess-avatar.opponent{background:#383046;color:#f0d0df}.chess-playername{flex:1}.chess-playername b{display:block;font-size:13px}.chess-playername small{display:block;font-size:11px;color:#ad96b7}
+.chess-clock{padding:8px 13px;background:#1b1525;color:#c6b4cd;border:1px solid #ffffff20;border-radius:10px;min-width:93px;text-align:center;font:700 22px ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.chess-clock.active{background:#94dfba;color:#132a20;border-color:#a6efc8;box-shadow:0 0 14px #7bedb03b}
+.chess-clock.low{background:#f6afaf;color:#421c27;border-color:#ff7e86;animation:clock-pulse 1s ease-in-out infinite}
+@keyframes clock-pulse{50%{filter:brightness(.8)}}
+.chess-status{display:flex;align-items:center;gap:10px;border:1px solid #7cba9d3c;border-radius:11px;color:#dcf3e5;background:#8bdcb415;margin:10px 0 0;padding:12px;font-size:12px}
+.chess-status-icon{font-size:21px;color:#a1f1bc}.chess-sidebar{padding:21px 17px;border:1px solid #ffffff24;background:linear-gradient(155deg,#302338,#1b1729);border-radius:18px}
+.chess-side-header h3{font-size:21px;letter-spacing:-.4px;margin:10px 0 6px}.chess-side-header p{font-size:11px;color:#c9b3d4;line-height:1.55;margin:0 0 22px}
+.chess-settings label{display:block;font-size:11px;color:#cfb9d5;margin-bottom:8px}.chess-settings select{width:100%;border:1px solid #ffffff36;background:#231c30;color:#f4e9f6;min-height:44px;border-radius:10px;padding:10px;font:12px system-ui}
+.chess-settings small{display:block;margin:8px 0 17px;color:#a990b6;font-size:9px;line-height:1.5}
+.chess-moves{border:1px solid #ffffff22;border-radius:12px;overflow:hidden}.chess-move-title{padding:11px 13px;display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid #ffffff1a}.chess-move-title span{color:#b79bbd;font-size:10px}.move-list{max-height:260px;overflow:auto;overscroll-behavior:contain}.move-row{display:grid;grid-template-columns:45px 1fr 1fr;gap:8px;padding:7px 10px;font:12px ui-monospace,monospace}.move-row:nth-child(odd){background:#ffffff09}.move-no{color:#a994b8}.chess-empty{color:#b8a2bd;font-size:11px;padding:19px;text-align:center}
+.chess-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}.chess-small{border:1px solid #ffffff30;border-radius:10px;padding:11px 9px;min-height:43px;font-size:11px;background:#ffffff09;color:#f3dfea}
+.chess-small.accent{background:#f7afcb;color:#321d30;font-weight:750}.chess-small.danger{background:#ff7b8f16;border-color:#ff869153;color:#ffacb7}
+.chess-offer,.chess-result{margin:14px 0;border-radius:13px;padding:14px;border:1px solid #a6f3c34b;background:#80dfaa15}.chess-offer b,.chess-result b{display:block;font-size:13px;color:#ccf0d9}.chess-offer p,.chess-result p{font-size:12px;color:#ebd6ed}.chess-result small{font-size:10px;color:#bd9ebe}.chess-toolbar{display:flex;gap:8px}
+.chess-promotion{position:fixed;z-index:50;inset:0;background:#090616c9;display:grid;place-items:center;padding:20px;backdrop-filter:blur(5px)}
+.promotion-box{border:1px solid #ffbad96b;background:#291f38;border-radius:20px;padding:25px;text-align:center;width:min(390px,100%)}.promotion-box h3{font-size:22px;margin:5px}.promotion-box p{font-size:12px;color:#c8a9cf}.promotion-choices{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:22px 0}.promotion-choices button{border-radius:12px;background:#eadad1;color:#292131;font-size:44px;min-height:66px}
+@media(max-width:850px){.chess-layout{grid-template-columns:minmax(0,1fr);max-width:640px;gap:13px}.chess-sidebar{display:grid;grid-template-columns:1fr 1fr;gap:12px}.chess-side-header{grid-column:1/-1}.chess-actions{grid-column:1/-1}.chess-sidebar .fineprint{grid-column:1/-1}}
+@media(max-width:580px){.chess-layout{margin:0 -9px 26px;gap:8px}.chess-board-wrap{border:5px solid #382639;border-radius:6px}.chess-piece{font-size:clamp(30px,9.5vw,46px)}.chess-playerstrip{padding:9px 10px;gap:8px}.chess-clock{min-width:84px;font-size:19px}.chess-sidebar{margin:5px 7px;grid-template-columns:1fr;gap:8px;padding:17px}.chess-side-header{grid-column:auto}.chess-moves{max-height:250px}.move-list{max-height:190px}.chess-actions{grid-column:auto}.chess-sidebar .fineprint{grid-column:auto}.chess-side-header h3{font-size:20px}.coordinate{font-size:9px}.chess-status{margin:8px 9px 0}.promotion-choices button{font-size:39px;min-height:57px}}
+@media(prefers-reduced-motion:reduce){.chess-clock.low{animation:none}.chess-piece{transition:none}}
