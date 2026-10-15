@@ -60,3 +60,14 @@ body{background:radial-gradient(ellipse at 70% -15%,#55315866,transparent 48%),r
  .chatpanel{bottom:max(130px,calc(env(safe-area-inset-bottom) + 117px))}.chat-backdrop{background:#080611ac}
 }
 @media(prefers-reduced-motion:reduce){.waiting:before,.bubble,.celebration .burst{animation:none!important}.gamecard,.choice,.memorycard,.dockbtn{transition:none!important}}
+
+/* Clear accessible presence colors: connected is green, disconnected red. */
+.players .presence-label{display:block;font-size:10px;font-weight:650}
+.players .presence-label.is-online{color:#62e6a5}
+.players .presence-label.is-offline{color:#ff758e}
+.players .presence-label.is-waiting{color:#e6c176}
+.players:has(#theirstatus.is-offline){border-color:#ff758e45}
+.players:has(#theirstatus.is-online){border-color:#62e6a545}
+#mic:not(:disabled)[aria-pressed="true"]{background:#ff9aad30;border-color:#ff92b8;color:#ffe0ed}
+#mic:not(:disabled)[aria-pressed="false"]{color:#92f0c5}
+#hangup:not(:disabled){opacity:1;color:#ff8ea5;border-color:#ff8ea545}
