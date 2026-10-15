@@ -30,6 +30,22 @@ const peerStub=String.raw`
 `.slice(1,-1);
 
 test.use({viewport:{width:390,height:844}});
+async function connectPair(context, hostName='Alex', guestName='Sky'){
+ const host=await context.newPage(),guest=await context.newPage();
+ await Promise.all([host.goto('/'),guest.goto('/')]);
+ await host.locator('#nickname').fill(hostName);
+ await guest.locator('#nickname').fill(guestName);
+ await host.locator('#create').click();
+ await expect(host.locator('#room')).toBeVisible();
+ const code=(await host.locator('#roomcode').textContent()).replace(/\\s/g,'');
+ await guest.locator('#roominput').fill(code);
+ await guest.locator('#join').click();
+ await expect(host.locator('#theirname')).toHaveText(guestName,{timeout:15000});
+ await expect(guest.locator('#theirname')).toHaveText(hostName,{timeout:15000});
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','lounge');
+ return {host,guest};
+}
+
 test('two browser tabs share approval-based Truth or Dare and chat',async({context})=>{
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'text/javascript',body:peerStub}));
  const host=await context.newPage();
@@ -149,15 +165,7 @@ test('invalid invite stays on entry screen instead of creating a room',async({pa
 
 test('five new games remain synchronized across two browser players',async({context})=>{
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
- const h=await context.newPage();
- await h.goto('/');await h.locator('#nickname').fill('Alex');await h.locator('#create').click();
- const code=(await h.locator('#roomcode').textContent()).replace(/\s/g,'');
- const g=await context.newPage();
- await g.goto('/');
- await g.locator('#nickname').fill('Sky');
- await g.locator('#roominput').fill(code);
- await g.locator('#join').click();
- await expect(g.locator('#theirname')).toHaveText('Alex',{timeout:12000});
+ const {host:h,guest:g}=await connectPair(context,'Alex','Sky');
  // XOXO: each turn validated, result shared, then both return to library.
  await h.locator('[data-game=xoxo]').click();
  await expect(g.locator('.xoxo-grid .xoxo-cell')).toHaveCount(9);
@@ -235,15 +243,7 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
  }};
  `.slice(1,-1)});
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
- const host=await context.newPage();
- await host.goto('/');await host.locator('#nickname').fill('Alex');await host.locator('#create').click();
- const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
- const guest=await context.newPage();
- await guest.goto('/');
- await guest.locator('#nickname').fill('Jamie');
- await guest.locator('#roominput').fill(code);
- await guest.locator('#join').click();
- await expect(guest.locator('#theirname')).toHaveText('Alex',{timeout:12000});
+ const {host,guest}=await connectPair(context,'Alex','Jamie');
  await host.locator('#watchLaunch').click();
  await expect(host.locator('#watch')).toBeVisible();
  await expect(guest.locator('#watch')).toBeVisible();
@@ -280,15 +280,7 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
 
 test('Watch Together: malformed YouTube URLs are rejected without changing the queue',async({context})=>{
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
- const host=await context.newPage();
- await host.goto('/');await host.locator('#create').click();
- const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
- const guest=await context.newPage();
- await guest.goto('/');
- await guest.locator('#nickname').fill('Viewer');
- await guest.locator('#roominput').fill(code);
- await guest.locator('#join').click();
- await expect(guest.locator('#theirname')).toHaveText('Sweetheart',{timeout:12000});
+ const {host,guest}=await connectPair(context,'Sweetheart','Viewer');
  await host.locator('#watchLaunch').click();
  await guest.locator('#watchUrl').fill('https://youtube.com.evil.example/watch?v=jfKfPfyJRdk');
  await guest.locator('#watchAdd').click();
