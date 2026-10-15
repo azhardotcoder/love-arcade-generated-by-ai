@@ -30,7 +30,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
  function disposePlayer(){
   suppress(1600);currentId='';pendingLoad='';playerReady=false;loading=false;lastVideoState=-99;localPlaying=false;
   if(player){try{player.destroy()}catch{}player=null}
-  $('watchVideo').replaceChildren();
+  $('watchVideo').replaceChildren();$('watchStartPlayback').hidden=true;
  }
  async function setVideo(id){
   if(id===currentId&&player)return;
@@ -95,6 +95,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
   $('watchPresence').classList.toggle('watch-offline',!connected);
   $('watchCount').textContent=s.queue.length+' / '+MAX_QUEUE;
   $('watchEmpty').hidden=!!selected;
+  if(!selected)$('watchStartPlayback').hidden=true;
   $('watchReady').disabled=!connected||!selected||s.ready[self];
   $('watchReady').textContent=s.ready[self]?'✓ You’re ready':'✓ I’m ready';
   $('watchReadyText').textContent=!selected?'Add a video to start your watch party.':
@@ -122,6 +123,8 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
  function update(){
   const s=watch();if(!s?.open)return;
   if(s.index>=0&&playerReady){
+   let iframePlaying=false;try{iframePlaying=player.getPlayerState()===1}catch{}
+   $('watchStartPlayback').hidden=!(s.playing&&s.ready.every(Boolean)&&!iframePlaying);
    const time=watchPosition(s,hostTime()),duration=frameDuration();
    if(!seekBusy){
     const slider=$('watchSeek');slider.disabled=!online()||!s.ready.every(Boolean)||!duration;
@@ -130,7 +133,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
    }
    $('watchClock').textContent=timestamp(time)+' / '+timestamp(duration);
    if(s.playing&&online())syncPlayer();
-  }else{$('watchClock').textContent='0:00 / 0:00';$('watchSeek').disabled=true}
+  }else{$('watchStartPlayback').hidden=true;$('watchClock').textContent='0:00 / 0:00';$('watchSeek').disabled=true}
  }
  function reaction(emoji){
   if(!REACTIONS.includes(emoji)||!watch()?.open)return;
@@ -156,6 +159,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
    act({type:'watch',kind:'add',url:input.value.trim()});input.value='';
   };
   $('watchReady').onclick=()=>act({type:'watch',kind:'ready'});
+  $('watchStartPlayback').onclick=()=>{if(!watch()?.ready.every(Boolean)||!online()||!playerReady)return;try{player.playVideo()}catch{toast('Tap the play button in the YouTube player to begin.')}update()};
   $('watchPlay').onclick=()=>{const s=watch();if(!s?.ready.every(Boolean))return;act({type:'watch',kind:s.playing?'pause':'play'});if(!s.playing&&playerReady){try{player.playVideo()}catch{}}};
   $('watchSync').onclick=()=>{syncPlayer(true);if(seat()===1)send({type:'sync'});toast('Playback synchronized with the room.')};
   $('watchNext').onclick=()=>act({type:'watch',kind:'next'});
