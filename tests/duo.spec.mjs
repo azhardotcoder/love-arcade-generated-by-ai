@@ -212,7 +212,7 @@ test('five new games remain synchronized across two browser players',async({cont
 
 
 test('Watch Together: two players queue videos, ready up, synchronize playback and react',async({context})=>{
- await context.addInitScript({content:String.raw\`
+ await context.addInitScript({content:String.raw`
  window.YT={Player:class {
   constructor(target,opts){this.options=opts;this.id=target;this.current=0;this.duration=360;this.status=5;this.videoId=opts.videoId;setTimeout(()=>opts.events.onReady?.({target:this}),15)}
   cueVideoById(id){this.videoId=id;this.current=0;this.status=5}
@@ -224,7 +224,7 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
   pauseVideo(){this.status=2}
   destroy(){this.status=-1}
  }};
- \`.slice(1,-1)});
+ `.slice(1,-1)});
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
  const host=await context.newPage(),guest=await context.newPage();
  await host.goto('/');await host.locator('#nickname').fill('Alex');await host.locator('#create').click();
