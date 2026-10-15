@@ -154,6 +154,7 @@ test('five new games remain synchronized across two browser players',async({cont
  const code=(await h.locator('#roomcode').textContent()).replace(/\s/g,'');
  const g=await context.newPage();
  await g.goto('/');
+ await g.locator('#nickname').fill('Sky');
  await g.locator('#roominput').fill(code);
  await g.locator('#join').click();
  await expect(g.locator('#theirname')).toHaveText('Alex',{timeout:12000});
@@ -239,6 +240,7 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
  const guest=await context.newPage();
  await guest.goto('/');
+ await guest.locator('#nickname').fill('Jamie');
  await guest.locator('#roominput').fill(code);
  await guest.locator('#join').click();
  await expect(guest.locator('#theirname')).toHaveText('Alex',{timeout:12000});
@@ -283,6 +285,7 @@ test('Watch Together: malformed YouTube URLs are rejected without changing the q
  const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
  const guest=await context.newPage();
  await guest.goto('/');
+ await guest.locator('#nickname').fill('Viewer');
  await guest.locator('#roominput').fill(code);
  await guest.locator('#join').click();
  await expect(guest.locator('#theirname')).toHaveText('Sweetheart',{timeout:12000});
