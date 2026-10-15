@@ -37,7 +37,7 @@ async function connectPair(context, hostName='Alex', guestName='Sky'){
  await guest.locator('#nickname').fill(guestName);
  await host.locator('#create').click();
  await expect(host.locator('#room')).toBeVisible();
- const code=(await host.locator('#roomcode').textContent()).replace(/\\s/g,'');
+ const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
  await guest.locator('#roominput').fill(code);
  await guest.locator('#join').click();
  await expect(host.locator('#theirname')).toHaveText(guestName,{timeout:15000});
