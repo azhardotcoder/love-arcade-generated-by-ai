@@ -106,3 +106,25 @@ test('two players play legal chess moves and agree a draw and rematch',async({co
  await expect(host.locator('.move-row')).toHaveCount(0);
  await host.close();await guest.close();
 });
+
+test('invite URL automatically joins room without tapping Join',async({context})=>{
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
+ const host=await context.newPage();await host.goto('/');
+ await host.locator('#nickname').fill('Host');
+ await host.locator('#create').click();
+ await expect(host.locator('#room')).toBeVisible();
+ const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
+ const guest=await context.newPage();
+ await guest.goto('/#room='+code);
+ await expect(guest.locator('#room')).toBeVisible({timeout:12000});
+ await expect(guest.locator('#theirname')).toHaveText('Host',{timeout:12000});
+ await expect(host.locator('#theirname')).toHaveText('Player 2',{timeout:12000});
+ await expect(guest.locator('#welcome')).toBeHidden();
+ await host.close();await guest.close();
+});
+test('invalid invite stays on entry screen instead of creating a room',async({page})=>{
+ await page.goto('/#room=INVALID');
+ await expect(page.locator('#welcome')).toBeVisible();
+ await expect(page.locator('#room')).toBeHidden();
+ await expect(page.locator('#entryerror')).toContainText('invalid');
+});
