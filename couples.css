@@ -1,0 +1,38 @@
+
+/* Love Arcade extra game pack: responsive synchronized play. */
+.couple-surface{max-width:910px;margin:0 auto 30px;padding:25px;border:1px solid #ffffff2c;border-radius:22px;background:linear-gradient(155deg,#322440,#1b172b);box-shadow:0 20px 55px #0004}
+.couple-surface h2{font-size:clamp(25px,4vw,38px);letter-spacing:-1px;margin:10px 0 18px}
+.couple-surface h3{font-size:21px}.couple-topline{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:14px 0}.couple-topline strong{font-size:12px;color:#e9d5ec}
+.couple-surface .subtitle{font-size:13px;color:#d8c1de}.couple-form{margin:15px 0;display:flex;flex-wrap:wrap;gap:9px;align-items:center}.couple-form label{flex-basis:100%;font-size:11px;color:#ead5eb}
+.couple-form input{flex:1;min-width:110px;min-height:47px;background:#140e22;color:#fff;border:1px solid #ffffff44;border-radius:11px;padding:11px;font-size:16px}
+.couple-surface .primary,.couple-surface .secondary{min-height:46px}
+.secret-prompt{border:1px solid #ffabd764;color:#d6b9ce;background:#ff9bb711;border-radius:12px;padding:12px 15px;margin:15px 0;font-size:10px;letter-spacing:1px}
+.secret-prompt strong{display:block;color:#fff5f7;font-size:21px;letter-spacing:0;margin-top:4px}
+.draw-wrap{width:100%;border:8px solid #4a3451;overflow:hidden;border-radius:16px;background:#fff9f6;box-shadow:0 10px 30px #0004;touch-action:none}
+#loveCanvas{display:block;width:100%;height:auto;aspect-ratio:800/520;touch-action:none;user-select:none;cursor:crosshair}
+.draw-tools{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:12px 0}
+.draw-tools>span{font-size:11px;color:#d6b8d6}.draw-tools select{background:#2c203b;color:#fff;border:1px solid #ffffff37;border-radius:8px;padding:9px}
+.ink-choice{height:31px;width:31px;min-width:31px;border-radius:50%;background:var(--ink);border:2px solid #fff8;box-shadow:0 2px 8px #0005}
+.ink-choice.current{outline:3px solid #ffc0dd;outline-offset:2px}.guess-log{background:#20182e;border:1px solid #ffffff23;border-radius:12px;padding:13px;margin:12px 0}.guess-log b{font-size:12px;color:#ffbdd8}.guess-log p{font-size:12px;color:#dbc4dd;margin:5px 0}
+.xoxo-tally{font-size:13px;color:#efd8e9;display:flex;align-items:center;justify-content:space-around;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid #ffffff25;border-radius:12px}
+.xoxo-tally span{font-size:26px;color:#ff9fbd}.xoxo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:475px;margin:25px auto}
+.xoxo-cell{aspect-ratio:1;border-radius:18px;background:linear-gradient(145deg,#56354e,#372846);border:1px solid #ffffff38;font-size:clamp(55px,11vw,91px);font-family:Georgia,serif;line-height:1}
+.xoxo-cell.heart{color:#ff9bbd}.xoxo-cell.kiss{color:#b9a4ff}.xoxo-cell:not(:disabled):hover{background:#77465f}.xoxo-cell:disabled{opacity:1}
+.bottle-stage{display:grid;place-items:center;padding:20px;min-height:250px}
+.bottle-ring{height:200px;width:200px;border:7px solid #ffabd34c;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#7d466d,#291f3f 70%);box-shadow:0 0 45px #ff9dc226;position:relative}
+.bottle-ring>span{font-size:77px;color:#ffb8d4}.bottle-needle{position:absolute;top:50%;left:50%;font-size:67px;color:#ffd09c;transform-origin:center;transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.bottle-categories{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.bottle-categories .choice{text-align:center;min-height:71px;font-size:17px;padding:16px}
+.bottle-task{padding:23px;border:1px solid #e3a8c454;background:radial-gradient(circle at top,#75425b,#31223d);border-radius:15px;margin:20px 0}
+.bottle-task small{color:#ffc9dd;letter-spacing:2px}.bottle-task h3{margin:10px 0;font-size:23px;line-height:1.5}
+.escape-progress{display:flex;gap:8px;margin:16px 0}.escape-progress span{height:6px;border-radius:12px;flex:1;background:#ffffff21}.escape-progress span.active{background:#f4a6cb}.escape-progress span.solved{background:#83eab9}
+.escape-scene{text-align:center;min-height:190px;background:radial-gradient(circle at center,#594058,#271d35);border-radius:16px;padding:22px;border:1px solid #ffffff30}
+.escape-scene>span{font-size:55px}.escape-scene h3{font-size:22px;margin:6px 0}.escape-scene p{color:#dfc7dc;font-size:12px}
+.private-clue{background:#172b36;border:1px solid #81cdd355;padding:18px;border-radius:14px;margin:18px 0}
+.private-clue span{font:11px monospace;color:#96dbdd;letter-spacing:1px}.private-clue p{font-size:17px;color:#f2e9f4;line-height:1.5}.private-clue small{font-size:10px;color:#b0cad1}
+.co-op-win{border:1px solid #80edb861;background:#70dfaa22;border-radius:15px;padding:27px;text-align:center;color:#b8f5d9;font-size:22px;margin:18px 0}
+.date-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:22px 0}.date-option{background:linear-gradient(140deg,#60425a,#342743);border:1px solid #ffc6e044;padding:20px;text-align:left;border-radius:15px;font-size:16px;min-height:99px}.date-option span{display:block;font:10px monospace;color:#ffbed9;margin-bottom:9px}
+.date-option:hover{border-color:#ffdcf0}.date-reveal{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}.date-reveal>div,.date-itinerary{border:1px solid #ffffff28;background:#ffffff0e;border-radius:12px;padding:16px}
+.date-reveal small{display:block;color:#ffbdd8;margin-bottom:9px;font:10px monospace}.date-reveal strong{font-size:18px}.date-complete{font-size:24px;color:#ffc5d9;text-align:center;margin:20px}
+.date-itinerary{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:10px 0}.date-itinerary b{font-size:12px}.date-itinerary span{font-size:12px;color:#e1c9df;text-align:right}
+@media(max-width:580px){.couple-surface{padding:17px;margin:0 -5px 24px;border-radius:17px}.couple-topline{gap:6px}.couple-topline strong{font-size:10px}.draw-wrap{border-width:4px;border-radius:11px}.draw-tools{gap:8px}.ink-choice{height:30px;width:30px}.xoxo-grid{gap:7px}.xoxo-cell{border-radius:12px;font-size:60px}.bottle-stage{min-height:210px}.bottle-ring{height:165px;width:165px}.bottle-ring>span{font-size:58px}.bottle-needle{font-size:55px}.date-option{padding:13px;font-size:14px;min-height:88px}.date-reveal strong{font-size:15px}.date-itinerary{align-items:start}.date-itinerary span{max-width:60%}}
+@media(prefers-reduced-motion:reduce){.bottle-needle{transition:none}}
