@@ -31,11 +31,11 @@ test('create a room, see presence & voice controls, and leave safely',async({pag
  await expect(page.locator('#myname')).toHaveText('Sweetheart');
  await expect(page.locator('#roomcode')).toHaveText(/[A-Z2-9]{4} [A-Z2-9]{4} [A-Z2-9]{4}/);
  await expect(page.getByRole('button',{name:'Mute'})).toBeDisabled();
- await page.locator('#chatopen').click();
- await expect(page.locator('#chatpanel')).toBeVisible();
- await page.locator('#chatclose').click();
- await expect(page.locator('#chatpanel')).toBeHidden();
- await page.locator('#leave').click();
+ await expect(page.locator('#room')).toHaveAttribute('data-stage','waiting');
+ await expect(page.locator('#waitingRoom')).toBeVisible();
+ await expect(page.locator('#lobby')).toBeHidden();
+ await expect(page.locator('#dock')).toBeHidden();
+ await page.locator('#waitingLeave').click();
  await expect(page.getByRole('dialog')).toBeVisible();
  await page.getByRole('dialog').getByRole('button',{name:'Leave room'}).click();
  await expect(page.locator('#welcome')).toBeVisible();
@@ -60,15 +60,13 @@ test('guided room UX shows invite state and chat backdrop',async({page})=>{
  await expect(page.locator('.welcome-steps')).toContainText('Create a room');
  await expect(page.locator('.welcome-steps')).toContainText('Invite your person');
  await page.getByRole('button',{name:/Create our room/i}).click();
- await expect(page.locator('#roomGuide')).toBeVisible();
- await expect(page.locator('#guideTitle')).toContainText('invite your person');
- await expect(page.locator('#guideShare')).toBeVisible();
- await page.locator('#chatopen').click();
- await expect(page.locator('#chatpanel')).toBeVisible();
- await expect(page.locator('#chatbackdrop')).toBeVisible();
- await page.keyboard.press('Escape');
- await expect(page.locator('#chatpanel')).toBeHidden();
- await expect(page.locator('#chatbackdrop')).toBeHidden();
+ await expect(page.locator('#waitingRoom')).toBeVisible();
+ await expect(page.locator('#waitingTitle')).toContainText('better together');
+ await expect(page.locator('#waitingShare')).toBeVisible();
+ await expect(page.locator('#waitingCopy')).toBeVisible();
+ await expect(page.locator('#journeyStep')).toHaveText('PRIVATE WAITING ROOM');
+ await expect(page.locator('#game')).toBeHidden();
+ await expect(page.locator('#watch')).toBeHidden();
 });
 
 test('UX stylesheet and game status hooks are available',async({page})=>{
@@ -103,4 +101,15 @@ test('presence indicators use green online, red offline and waiting state',async
  await page.context().setOffline(true);
  await expect(page.locator('#mystatus')).toHaveClass(/is-offline/);
  await page.context().setOffline(false);
+});
+
+test('dedicated waiting room fits a narrow phone without horizontal overflow',async({page})=>{
+ await page.setViewportSize({width:320,height:720});
+ await page.goto('/');
+ await page.locator('#create').click();
+ await expect(page.locator('#waitingRoom')).toBeVisible();
+ const widths=await page.evaluate(()=>({document:document.documentElement.scrollWidth,viewport:innerWidth}));
+ expect(widths.document).toBeLessThanOrEqual(widths.viewport+2);
+ const audit=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
+ expect(audit.violations.filter(v=>['critical','serious'].includes(v.impact)).map(v=>v.id)).toEqual([]);
 });
