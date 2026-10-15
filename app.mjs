@@ -79,6 +79,19 @@ function drawPoint(event,element){
  const rect=element.getBoundingClientRect();if(!rect.width||!rect.height)return [0,0];
  return [Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width)),Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height))].map(x=>Math.round(x*10000)/10000);
 }
+function sendDrawingPreview(){
+ if(!online()||!drawActive||S.game!=='pictionary'||!drawPoints.length)return;
+ send({type:'draw-preview',epoch:S.epoch,round:S.round,points:drawPoints.slice(-80),color:drawColor,width:drawWidth});
+}
+function showDrawingPreview(d){
+ if(S.game!=='pictionary'||!S.couple||S.couple.phase!=='draw'||S.couple.drawer===(host?0:1))return;
+ if(d.epoch!==S.epoch||d.round!==S.round||!Array.isArray(d.points)||d.points.length>80||d.points.length===0||!d.points.every(p=>Array.isArray(p)&&p.length===2&&p.every(n=>Number.isFinite(n)&&n>=0&&n<=1)))return;
+ if(!['#fff1ed','#ff89ba','#ffc47b','#aa96ff','#8fe3c0','#37253e'].includes(d.color)||![3,6,10,15].includes(d.width))return;
+ const canvas=$('loveCanvas');if(!canvas)return;
+ let line=canvas.querySelector('#remoteDraft');
+ if(!line){line=document.createElementNS('http://www.w3.org/2000/svg','polyline');line.id='remoteDraft';canvas.append(line)}
+ line.setAttribute('points',d.points.map(p=>p[0]*800+','+p[1]*520).join(' '));line.setAttribute('fill','none');line.setAttribute('stroke',d.color);line.setAttribute('stroke-width',String(d.width));line.setAttribute('stroke-linecap','round');line.setAttribute('stroke-linejoin','round');
+}
 function finishDrawing(){
  if(!drawActive)return;drawActive=false;
  if(drawPoints.length){coupleAct('stroke',{points:drawPoints.slice(0,80),color:drawColor,width:drawWidth});drawPoints=[]}
@@ -127,6 +140,7 @@ function validState(s){return s&&Number.isInteger(s.rev)&&Number.isInteger(s.epo
 function receive(d){if(d.type==='welcome'&&!host&&validState(d.state)){connected=true;blocked=false;joinCount=0;S=d.state;if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});partner=String(d.name||'Sweetheart').slice(0,24);if(Array.isArray(d.messages)){messages=d.messages.filter(m=>m&&typeof m.text==='string'&&typeof m.id==='string').slice(-80);messageIds=new Set(messages.map(m=>m.id))}toast('Your partner is here!');render();return}
 if(d.type==='denied'&&!host){blocked=true;connecting=false;toast(String(d.reason||'Room unavailable').slice(0,180));conn?.close();presence();return}
 if(!connected)return;
+if(d.type==='draw-preview'){showDrawingPreview(d);return}
 if(d.type==='ping'){presenceAway=!!d.away;send({type:'pong',away:document.hidden,echo:d.sentAt||0,hostNow:stamp()});presence();return}
 if(d.type==='pong'){presenceAway=!!d.away;if(!host&&Number.isFinite(d.hostNow)&&Number.isFinite(d.echo)&&d.echo>0){const end=stamp();const elapsed=Math.max(0,end-d.echo);if(elapsed<30000)hostClockOffset=d.hostNow+elapsed/2-end;}presence();return}
 if(d.type==='sync'&&host){send({type:'snapshot',state:viewForSeat(S,1)});return}
@@ -297,11 +311,11 @@ $('gamebody').addEventListener('submit',e=>{
 });
 $('gamebody').addEventListener('pointerdown',e=>{
  const canvas=e.target.closest('#loveCanvas');if(!canvas||S.game!=='pictionary'||S.couple.drawer!==(host?0:1)||S.couple.phase!=='draw'||!online())return;
- e.preventDefault();drawActive=true;drawPoints=[drawPoint(e,canvas)];try{canvas.setPointerCapture(e.pointerId)}catch{}redrawDraft();
+ e.preventDefault();drawActive=true;drawPoints=[drawPoint(e,canvas)];try{canvas.setPointerCapture(e.pointerId)}catch{}redrawDraft();sendDrawingPreview();
 });
 $('gamebody').addEventListener('pointermove',e=>{
  const canvas=e.target.closest('#loveCanvas');if(!drawActive||!canvas)return;e.preventDefault();const point=drawPoint(e,canvas);
- if(!drawPoints.length||Math.hypot(point[0]-drawPoints.at(-1)[0],point[1]-drawPoints.at(-1)[1])>.003){drawPoints.push(point);if(drawPoints.length===80){finishDrawing()}else redrawDraft()}
+ if(!drawPoints.length||Math.hypot(point[0]-drawPoints.at(-1)[0],point[1]-drawPoints.at(-1)[1])>.003){drawPoints.push(point);if(drawPoints.length===80){finishDrawing()}else{redrawDraft();if(stamp()-drawLastMove>110){drawLastMove=stamp();sendDrawingPreview()}}}
 });
 $('gamebody').addEventListener('pointerup',finishDrawing);
 $('gamebody').addEventListener('pointercancel',finishDrawing);
