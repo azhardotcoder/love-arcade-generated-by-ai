@@ -314,7 +314,15 @@ if(inviteParam){
   // Start as soon as the page has initialized; PeerJS comes from a deferred script.
   if(!$('nickname').value.trim())$('nickname').value='Player 2';
   $('entryerror').textContent='Joining your partner’s room automatically…';
-  create(false);
+  // Modules and deferred connection scripts can finish in either order on
+  // slow mobile networks. Retry loading before attempting automatic joining.
+  const tryInvite=(attempt=0)=>{
+   if(active)return;
+   if(window.Peer){create(false);return}
+   if(attempt<40){setTimeout(()=>tryInvite(attempt+1),250);return}
+   $('entryerror').textContent='The multiplayer service is taking too long. Refresh or tap Join.';
+  };
+  tryInvite();
  }else{
   $('entryerror').textContent='This invite link is invalid. Ask your partner to share a new one.';
  }
