@@ -1,6 +1,8 @@
 import {GAMES,QUESTIONS,RATHER,fresh,reduce,viewForSeat,registerChessRules} from './engine.mjs';
 import {chessLibrary,clockNow} from './chess.mjs';
 import {chessBoardView,legalMoves,promotionRequired,pgnOf,formatClock} from './chess-ui.mjs';
+import {PACK_IDS,PROMPTS} from './couples-games.mjs';
+import {renderCouple} from './couples-ui.mjs';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const svg=n=>'<svg><use href="#icon-'+n+'"/></svg>';
@@ -12,6 +14,7 @@ let lastCelebrateEpoch='',lastExperienceSignature='',messages=[],messageIds=new 
 let call=null,stream=null,voice='off',voiceId='',voiceToken=0,micMuted=false,soundMuted=false,partnerMicMuted=false,playbackBlocked=false,callStarted=0,callTimeout=null,voiceClock=null;
 const audio=$('remoteaudio');
 let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1,hostClockOffset=0;
+let drawActive=false,drawPoints=[],drawColor='#37253e',drawWidth=6,drawTimer=null,drawLastMove=0;
 const online=()=>active&&connected&&conn?.open&&navigator.onLine&&stamp()-lastSeen<17000&&!closed;
 const send=d=>{try{if(conn?.open){conn.send({v:2,...d});return true}}catch{}return false};
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3600)}
@@ -70,6 +73,39 @@ function chessClockUpdate(){
   el.textContent=c.mode==='classic'?'∞':formatClock(v);
   el.classList.toggle('low',c.mode!=='classic'&&c.status==='playing'&&c.turn===seat&&v<30000);
  });
+}
+function coupleAct(action,extra={}){act({type:'couple',action,...extra})}
+function drawPoint(event,element){
+ const rect=element.getBoundingClientRect();if(!rect.width||!rect.height)return [0,0];
+ return [Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width)),Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height))].map(x=>Math.round(x*10000)/10000);
+}
+function finishDrawing(){
+ if(!drawActive)return;drawActive=false;
+ if(drawPoints.length){coupleAct('stroke',{points:drawPoints.slice(0,80),color:drawColor,width:drawWidth});drawPoints=[]}
+}
+function redrawDraft(){
+ const canvas=$('loveCanvas');
+ if(!canvas)return;canvas.querySelector('#draftStroke')?.remove();
+ if(!drawActive||!drawPoints.length)return;
+ const line=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+ line.setAttribute('id','draftStroke');line.setAttribute('points',drawPoints.map(p=>p[0]*800+','+p[1]*520).join(' '));
+ line.setAttribute('fill','none');line.setAttribute('stroke',drawColor);line.setAttribute('stroke-width',String(drawWidth));
+ line.setAttribute('stroke-linecap','round');line.setAttribute('stroke-linejoin','round');canvas.append(line);
+}
+function displayCouple(){
+ const seat=host?0:1,game=S.couple;
+ if(!game){$('gamebody').innerHTML='<div class="waiting">Preparing game…</div>';return}
+ $('gamebody').innerHTML=renderCouple(game,seat);
+ $('roundlabel').textContent='ROUND '+(game.round||game.stage+1||game.room+1);
+ updateExperience();
+ updateDrawClock();
+}
+function updateDrawClock(){
+ if(S.game!=='pictionary'||!S.couple)return;
+ const el=$('pictionaryClock');if(!el)return;
+ const ms=Math.max(0,S.couple.endsAt-(stamp()+(host?0:hostClockOffset)));
+ const sec=Math.ceil(ms/1000);el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+ if(host&&online()&&S.couple.phase==='draw'&&ms<=0)coupleAct('end');
 }
 function busy(v){$('create').disabled=v;$('join').disabled=v;$('create').textContent=v?'Connecting...':'Create our room →'}
 function codegen(){const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from(crypto.getRandomValues(new Uint8Array(12)),v=>abc[v%abc.length]).join('')}
@@ -136,7 +172,12 @@ function updateExperience(){
  if(S.game&&status){
   const seat=host?0:1,mine=S.turn===seat;
   let title='Your move',detail='Pick an action to continue.',symbol='✦',count='ROUND '+S.round;
-  if(S.game==='chess'){const c=S.chess;title=c?.status==='finished'?'Match complete':c?.turn===seat?'Your move · Chess Royale':'Opponent thinking…';detail=c?.status==='finished'?c.result:c?.check?'Check! Protect your king.':'Tap a piece to see legal squares. You can also drag pieces.';symbol='♞';count='MOVE '+(Math.floor((c?.moves?.length||0)/2)+1)}
+  if(PACK_IDS.includes(S.game)){
+   const g=S.couple;
+   title=({pictionary:'Love Pictionary',xoxo:'XOXO Battle',bottle:'Spin the Bottle',escape:'Escape Together',date:'Our Dream Date'})[S.game];
+   detail=({pictionary:'Take turns drawing and guessing the private clue.',xoxo:'Place your symbol and get three in a row.',bottle:'Spin a challenge, complete it, then get partner approval.',escape:'Combine both clues and solve the room.',date:'Pick secretly and reveal the date together.'})[S.game];
+   symbol=GAMES[S.game].icon;count=S.game==='date'?'CHAPTER '+(g.stage+1):S.game==='escape'?'ROOM '+(g.room+1):'ROUND '+g.round;
+  }else if(S.game==='chess'){const c=S.chess;title=c?.status==='finished'?'Match complete':c?.turn===seat?'Your move · Chess Royale':'Opponent thinking…';detail=c?.status==='finished'?c.result:c?.check?'Check! Protect your king.':'Tap a piece to see legal squares. You can also drag pieces.';symbol='♞';count='MOVE '+(Math.floor((c?.moves?.length||0)/2)+1)}
   else if(S.game==='truth'){
    if(S.phase==='choose'){title=mine?'Your turn: choose Truth or Dare':partner+' is choosing';detail=mine?'Pick your challenge. Your partner approves once it is done.':'Watch the next challenge appear on both screens.';symbol=mine?'♡':'◌'}
    else if(S.phase==='task'){title=mine?'Challenge in progress':partner+' is completing a challenge';detail=mine?'Answer by text, chat or voice, then tap completed.':'You will get the Approve / Try Again choice next.';symbol='✧'}
@@ -162,7 +203,7 @@ function celebrate(){
 }
 function render(){ $('gamecards').innerHTML=Object.entries(GAMES).map(([id,g],i)=>'<button class="gamecard '+g.theme+'" data-game="'+id+'"><span class="tagline">0'+(i+1)+' / '+g.label+'</span><span class="arrow">↗</span><span class="art">'+g.icon+'</span><h3>'+g.title+'</h3><p>'+g.desc+'</p></button>').join('');renderGame();drawChat();presence();updateExperience()}
 const button=(k,s,cl='primary',extra='')=>'<button class="'+cl+'" data-do="'+k+'" '+extra+'>'+s+'</button>';
-function renderGame(){const g=S.game;$('lobby').hidden=!!g;$('game').hidden=!g;if(!g){$('gamebody').replaceChildren();return}if(g==='chess'&&!ChessCtor){$('gamebody').innerHTML='<div class="waiting">Loading professional chess engine…</div>';loadChess().catch(()=>{});return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
+function renderGame(){const g=S.game;$('lobby').hidden=!!g;$('game').hidden=!g;if(!g){$('gamebody').replaceChildren();return}if(PACK_IDS.includes(g)){displayCouple();return}if(g==='chess'&&!ChessCtor){$('gamebody').innerHTML='<div class="waiting">Loading professional chess engine…</div>';loadChess().catch(()=>{});return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
 if(g==='truth'){h+='<h2>Truth or Dare</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span><span class="fineprint">Approval required before switching turns</span></div><div class="steps"><span class="'+(S.phase==='choose'?'active':'')+'">01 CHOOSE</span><span class="'+(S.phase==='task'?'active':'')+'">02 COMPLETE</span><span class="'+(S.phase==='approval'?'active':'')+'">03 APPROVE</span></div>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';if(S.phase==='choose')h+=mine?'<p class="subtitle">Be honest, be brave, be you.</p><div class="choices">'+button('truth','♡ Truth<small>Open up a little.</small>','choice')+button('dare','✧ Dare<small>Make a little magic.</small>','choice')+'</div>':'<div class="waiting">Your partner is choosing Truth or Dare…</div>';else{h+='<span class="eyebrow pink">'+esc(S.kind.toUpperCase())+'</span><h2>'+esc(S.task)+'</h2>';if(S.reply)h+='<div class="answerbox"><small>THE ANSWER</small><p>'+esc(S.reply)+'</p></div>';if(S.phase==='task')h+=mine?ta('Optional: type your answer or use voice/chat',500)+'<div class="gameactions">'+button('complete','✓ I completed it')+button('skip','Skip (no penalty)','secondary')+'</div>':'<div class="waiting">'+esc(partner)+' is completing the task…</div>';else h+=mine?'<div class="waiting">Waiting for partner approval before turns switch.</div><div class="gameactions">'+button('skip','Skip instead','secondary')+'</div>':'<p class="subtitle">Did they complete the challenge?</p><div class="gameactions">'+button('approve','✓ Approve & switch turns')+button('retry','Try again','secondary')+'</div>'}h+='<p class="fineprint">You can always skip. There is never a penalty.</p>'}
 if(['quiz','rather','notes'].includes(g)){const question=g==='quiz'?QUESTIONS[(S.round-1)%QUESTIONS.length]:g==='notes'?'Tell them something beautiful.':'What would you rather?';h+='<h2>'+esc(question)+'</h2><p class="subtitle">Both answers stay hidden until you each submit.</p>';if(S.phase==='reveal'){const options=g==='rather'?RATHER[(S.round-1)%RATHER.length]:null;h+='<p class="reveal-title">Two hearts, one reveal.</p>';for(const i of [seat,1-seat])h+='<div class="answerbox"><small>'+(i===seat?'YOU':esc(partner).toUpperCase())+'</small><p>'+esc(options?options[S.answers[i]]:S.answers[i])+'</p></div>';h+=S.ready[seat]?'<div class="waiting">Waiting for your partner to continue…</div>':button('next','Ready for next round')}else if(S.answers[seat]!==null)h+='<div class="waiting">Your answer is sealed. Waiting for your partner…</div>';else if(g==='rather')h+='<div class="choices">'+RATHER[(S.round-1)%RATHER.length].map((x,i)=>button('option',esc(x),'choice','data-value="'+i+'"')).join('')+'</div>';else h+=ta(g==='notes'?'Write your secret love note':'Share your answer',g==='notes'?1000:500)+button('answer',g==='notes'?'Seal my love note':'Lock my answer')}
 if(g==='chess'){
@@ -234,7 +275,39 @@ $('gamebody').onclick=e=>{
  }
  const square=e.target.closest('[data-square]');
  if(square&&S.game==='chess'){chessPickSquare(square.dataset.square);return}
+ if(PACK_IDS.includes(S.game))return;
  const b=e.target.closest('[data-do]');if(!b||b.disabled)return;const a=b.dataset.do;if(a==='truth'||a==='dare')act({type:'pick',kind:a});else if(a==='complete')act({type:'complete',value:$('response')?.value||''});else if(a==='answer'){const v=$('response')?.value.trim();if(!v)return toast('Write an answer first.');act({type:'answer',value:v})}else if(a==='option')act({type:'answer',value:Number(b.dataset.value)});else if(a==='flip')act({type:'flip',index:Number(b.dataset.index)});else if(['approve','retry','skip','next','replay'].includes(a))act({type:a})};
+$('gamebody').addEventListener('click',e=>{
+ if(!PACK_IDS.includes(S.game)||!online())return;
+ const c=e.target.closest('[data-couple-action]');
+ if(c){
+  const action=c.dataset.coupleAction;
+  if(action==='spin'){coupleAct('spin',{category:c.dataset.mood});return}
+  if(action==='guess'&&S.game==='pictionary'){const v=$('guessInput')?.value.trim();if(v)coupleAct('guess',{value:v});return}
+  if(action==='guess'&&S.game==='escape'){const v=$('escapeAnswer')?.value.trim();if(v)coupleAct('guess',{value:v});return}
+  if(action==='clear'||action==='pass'||action==='ready'||action==='done'||action==='approve'||action==='retry'||action==='hint'||action==='replay')coupleAct(action);
+  return;
+ }
+ const x=e.target.closest('[data-xoxo]');if(x&&S.game==='xoxo')coupleAct('place',{index:Number(x.dataset.xoxo)});
+ const d=e.target.closest('[data-date]');if(d&&S.game==='date')coupleAct('choose',{index:Number(d.dataset.date)});
+ const ink=e.target.closest('[data-ink]');if(ink){drawColor=ink.dataset.ink;document.querySelectorAll('.ink-choice').forEach(b=>b.classList.toggle('current',b===ink))}
+});
+$('gamebody').addEventListener('submit',e=>{
+ if(e.target.id==='guessForm'||e.target.id==='escapeForm'){e.preventDefault();const v=e.target.querySelector('input')?.value.trim();if(v)coupleAct('guess',{value:v})}
+});
+$('gamebody').addEventListener('pointerdown',e=>{
+ const canvas=e.target.closest('#loveCanvas');if(!canvas||S.game!=='pictionary'||S.couple.drawer!==(host?0:1)||S.couple.phase!=='draw'||!online())return;
+ e.preventDefault();drawActive=true;drawPoints=[drawPoint(e,canvas)];try{canvas.setPointerCapture(e.pointerId)}catch{}redrawDraft();
+});
+$('gamebody').addEventListener('pointermove',e=>{
+ const canvas=e.target.closest('#loveCanvas');if(!drawActive||!canvas)return;e.preventDefault();const point=drawPoint(e,canvas);
+ if(!drawPoints.length||Math.hypot(point[0]-drawPoints.at(-1)[0],point[1]-drawPoints.at(-1)[1])>.003){drawPoints.push(point);if(drawPoints.length===80){finishDrawing()}else redrawDraft()}
+});
+$('gamebody').addEventListener('pointerup',finishDrawing);
+$('gamebody').addEventListener('pointercancel',finishDrawing);
+$('gamebody').addEventListener('change',e=>{
+ if(e.target.id==='brushSize')drawWidth=Number(e.target.value);
+});
 $('gamebody').addEventListener('change',e=>{
  if(e.target.id==='chess-time'&&S.game==='chess'&&online()){
   chessSelection=null;act({type:'chess-config',mode:e.target.value});
@@ -256,4 +329,4 @@ $('call').onclick=startVoice;$('hangup').onclick=()=>stopVoice(true);$('acceptca
 $('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(!host&&!conn?.open){connecting=false;join()}}presence()}});
 window.addEventListener('pagehide',e=>{stopVoice(true);if(!e.persisted)peer?.destroy()});
 window.addEventListener('pageshow',e=>{if(e.persisted&&active){if(peer?.disconnected&&!peer.destroyed){try{peer.reconnect()}catch{}}if(!host&&!conn?.open){connecting=false;join()}send({type:'sync'});presence()}});window.addEventListener('beforeunload',e=>{if(host&&active&&connected){e.preventDefault();e.returnValue=''}});
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden,sentAt:stamp()});presence();if(!host&&!conn?.open&&!connecting&&joinCount<5&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);refreshVoice();
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden,sentAt:stamp()});presence();if(!host&&!conn?.open&&!connecting&&joinCount<5&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);setInterval(updateDrawClock,1000);refreshVoice();
