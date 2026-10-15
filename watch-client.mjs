@@ -43,7 +43,8 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
    if(player){suppress(1800);try{player.destroy()}catch{}player=null}
    $('watchVideo').replaceChildren();
    suppress(1800);
-   player=new YT.Player('watchVideo',{
+   const slot=document.createElement('div');slot.id='watchYTSlot';$('watchVideo').append(slot);
+   player=new YT.Player('watchYTSlot',{
     width:'100%',height:'100%',videoId:id,
     playerVars:{playsinline:1,controls:1,rel:0,origin:location.origin,enablejsapi:1},
     events:{
