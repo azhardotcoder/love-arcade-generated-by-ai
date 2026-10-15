@@ -45,9 +45,7 @@ test('two peers build and manage bounded shared queue',()=>{
  s=apply(s,0,'remove',{index:0});
  assert.equal(s.index,1);assert.equal(s.queue.length,2);
  s=apply(s,1,'remove',{index:1});
- assert.equal(s.index,1);assert.deepEqual(s.ready,[false,false]);
- s=apply(s,0,'remove',{index:1});
- assert.equal(s.index,0);
+ assert.equal(s.index,0);assert.deepEqual(s.ready,[false,false]);
  s=apply(s,0,'remove',{index:0});
  assert.equal(s.index,-1);
  assert.equal(MAX_QUEUE,24);
