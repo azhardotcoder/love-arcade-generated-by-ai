@@ -38,3 +38,9 @@
 @media(max-width:850px){.chess-layout{grid-template-columns:minmax(0,1fr);max-width:640px;gap:13px}.chess-sidebar{display:grid;grid-template-columns:1fr 1fr;gap:12px}.chess-side-header{grid-column:1/-1}.chess-actions{grid-column:1/-1}.chess-sidebar .fineprint{grid-column:1/-1}}
 @media(max-width:580px){.chess-layout{margin:0 -9px 26px;gap:8px}.chess-board-wrap{border:5px solid #382639;border-radius:6px}.chess-piece{font-size:clamp(30px,9.5vw,46px)}.chess-playerstrip{padding:9px 10px;gap:8px}.chess-clock{min-width:84px;font-size:19px}.chess-sidebar{margin:5px 7px;grid-template-columns:1fr;gap:8px;padding:17px}.chess-side-header{grid-column:auto}.chess-moves{max-height:250px}.move-list{max-height:190px}.chess-actions{grid-column:auto}.chess-sidebar .fineprint{grid-column:auto}.chess-side-header h3{font-size:20px}.coordinate{font-size:9px}.chess-status{margin:8px 9px 0}.promotion-choices button{font-size:39px;min-height:57px}}
 @media(prefers-reduced-motion:reduce){.chess-clock.low{animation:none}.chess-piece{transition:none}}
+
+.chess-captures{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 0 14px}
+.chess-captures>div{padding:11px 10px;background:#ffffff08;border:1px solid #ffffff18;border-radius:9px;min-width:0}
+.chess-captures small{display:block;font-size:9px;color:#bfaacb;margin-bottom:6px}
+.chess-captures span{display:block;color:#f8e8f3;min-height:20px;font-size:17px;line-height:1.4;overflow-wrap:anywhere}
+@media(min-width:851px){.gamecard:nth-child(5){grid-column:auto}}
