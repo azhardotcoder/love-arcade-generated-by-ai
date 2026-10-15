@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import {test,expect} from '@playwright/test';
 
 const peerStub=String.raw`
@@ -64,4 +65,44 @@ test('two browser tabs share approval-based Truth or Dare and chat',async({conte
  await guest.locator('#chatopen').click();
  await expect(guest.locator('#chatlog')).toContainText('This is a sweet message!');
  await guest.close();await host.close();
+});
+
+
+test('two players play legal chess moves and agree a draw and rematch',async({context})=>{
+ const chessSource=readFileSync(new URL('../node_modules/chess.js/dist/esm/chess.js',import.meta.url),'utf8');
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
+ await context.route('https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm',route=>route.fulfill({status:200,contentType:'application/javascript',headers:{'access-control-allow-origin':'*'},body:chessSource}));
+ const host=await context.newPage(),guest=await context.newPage();
+ await Promise.all([host.goto('/'),guest.goto('/')]);
+ await host.locator('#nickname').fill('White');
+ await guest.locator('#nickname').fill('Black');
+ await host.locator('#create').click();
+ const code=(await host.locator('#roomcode').textContent()).replace(/\s/g,'');
+ await guest.locator('#roominput').fill(code);
+ await guest.locator('#join').click();
+ await expect(host.locator('#theirstatus')).toContainText('Online');
+ await expect(guest.locator('#theirstatus')).toContainText('Online');
+ await host.locator('[data-game=chess]').click();
+ await expect(host.locator('.chess-board .chess-square')).toHaveCount(64,{timeout:12000});
+ await expect(guest.locator('.chess-board .chess-square')).toHaveCount(64,{timeout:12000});
+ await expect(host.locator('.chess-playerstrip')).toHaveCount(2);
+ await expect(host.locator('[data-square=e2]')).toContainText('♙');
+ await host.locator('[data-square=e2]').click();
+ await expect(host.locator('[data-square=e4]')).toHaveClass(/legal-target/);
+ await host.locator('[data-square=e4]').click();
+ await expect(guest.locator('.move-list')).toContainText('e4');
+ await guest.locator('[data-square=e7]').click();
+ await guest.locator('[data-square=e5]').click();
+ await expect(host.locator('.move-list')).toContainText('e5');
+ await host.locator('[data-chess-action=chess-offer][data-offer=draw]').click();
+ await expect(guest.locator('[data-chess-action=chess-accept]')).toBeVisible();
+ await guest.locator('[data-chess-action=chess-accept]').click();
+ await expect(host.locator('.chess-result')).toContainText('Draw');
+ await expect(guest.locator('.chess-result')).toContainText('Draw');
+ await host.locator('[data-chess-action=chess-rematch]').click();
+ await guest.locator('[data-chess-action=chess-rematch]').click();
+ await expect(host.locator('.chess-result')).toHaveCount(0);
+ await expect(guest.locator('.chess-result')).toHaveCount(0);
+ await expect(host.locator('.move-row')).toHaveCount(0);
+ await host.close();await guest.close();
 });
