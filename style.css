@@ -141,3 +141,8 @@
 .welcome-privacy a,.roomfooter a{color:#ffbad8;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 .welcome-privacy a:focus-visible,.roomfooter a:focus-visible{outline:2px solid #ffbad8;outline-offset:5px}
 @media(max-width:580px){.welcome-privacy{font-size:10px;gap:8px}.roomfooter{align-items:center;flex-wrap:wrap;justify-content:center;gap:14px;text-align:center}}
+
+.seo-preview{margin:22px 0 16px;border:1px solid #ffffff21;border-radius:18px;background:#25192f;overflow:hidden}
+.seo-preview img{display:block;width:100%;height:auto;max-height:280px;object-fit:cover;object-position:center}
+.seo-preview figcaption{text-align:center;color:#bea6c5;font-size:11px;padding:10px 14px}
+@media(max-width:580px){.seo-preview{border-radius:13px;margin:16px 0}.seo-preview img{max-height:190px}.seo-preview figcaption{font-size:10px}}
