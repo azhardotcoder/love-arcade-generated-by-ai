@@ -1,0 +1,18 @@
+{
+  "name": "Love Arcade — After Hours",
+  "short_name": "Love Arcade",
+  "description": "Romantic two-player date-night browser games",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#100b1d",
+  "theme_color": "#100b1d",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
