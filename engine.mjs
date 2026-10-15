@@ -1,4 +1,5 @@
 import {startChess,reduceChess} from './chess.mjs';
+import {initialLounge,reduceLounge} from './watch.mjs';
 import {PACK_IDS,newCoupleGame,reduceCouple,coupleView} from './couples-games.mjs';
 let ChessConstructor=null;
 export function registerChessRules(Chess){ChessConstructor=Chess}
@@ -24,14 +25,19 @@ export const RATHER=[
 ['A golden-hour picnic','A cozy movie night'],['A mountain cabin','A beachside cottage'],['A surprise road trip','A carefully planned vacation'],['Matching bracelets','A scrapbook of memories'],['Dancing in the kitchen','Stargazing on a rooftop'],['A handwritten love letter','A surprise date'],['Cooking dinner together','Discovering a new cafe'],['Revisit our first date','Try a brand-new adventure'],['Slow mornings together','Late-night heart-to-hearts'],['A midnight ice-cream run','A sunset walk']];
 export const SYMBOLS=['💗','🌹','🌙','💌','🎵','✨'];
 export const shuffled=a=>{const c=a.slice();for(let i=c.length-1;i>0;i--){const r=crypto.getRandomValues(new Uint32Array(1))[0];const j=r%(i+1);[c[i],c[j]]=[c[j],c[i]]}return c};
-export function fresh(){return {rev:0,epoch:0,game:null,round:1,phase:'choose',turn:0,kind:'',task:'',reply:'',answers:[null,null],ready:[false,false],score:[0,0],hearts:0,board:[],open:[],found:[],moves:0,feedback:'',used:{truth:[],dare:[]},chess:null,couple:null}}
+export function fresh(){return {rev:0,epoch:0,game:null,round:1,phase:'choose',turn:0,kind:'',task:'',reply:'',answers:[null,null],ready:[false,false],score:[0,0],hearts:0,board:[],open:[],found:[],moves:0,feedback:'',used:{truth:[],dare:[]},chess:null,couple:null,watch:initialLounge()}}
 const reset=(s,g)=>{s.game=g;s.epoch++;s.round=1;s.phase=g==='truth'?'choose':'answer';s.turn=0;s.kind='';s.task='';s.reply='';s.answers=[null,null];s.ready=[false,false];s.board=g==='match'?shuffled([...SYMBOLS,...SYMBOLS]):[];s.open=[];s.found=[];s.moves=0;s.feedback='';s.used={truth:[],dare:[]};s.chess=g==='chess'?startChess('rapid'):null;s.couple=PACK_IDS.includes(g)?newCoupleGame(g):null};
 export function reduce(state,a,seat){
  if(!a||typeof a!=='object'||![0,1].includes(seat)||!Number.isInteger(a.epoch)||!Number.isInteger(a.round))return null;
  if(a.epoch!==state.epoch||a.round!==state.round)return null;
  const s=structuredClone(state);
- if(a.type==='start'){if(s.game||!Object.hasOwn(GAMES,a.game)||a.game==='chess'&&!ChessConstructor)return null;reset(s,a.game)}
+ if(a.type==='start'){if(s.game||s.watch.open||!Object.hasOwn(GAMES,a.game)||a.game==='chess'&&!ChessConstructor)return null;reset(s,a.game)}
  else if(a.type==='lobby'){if(!s.game)return null;reset(s,null)}
+ else if(a.type==='watch'){
+  if(!s.watch||a.kind==='open'&&s.game)return null;
+  const next=reduceLounge(s.watch,a,seat,Date.now());if(!next)return null;
+  s.watch=next;
+ }
  else if(a.type==='chess-config'){
  if(s.game!=='chess'||s.chess.moves.length||!['rapid','blitz','classic'].includes(a.mode)||s.chess.status!=='playing')return null;
  s.chess=startChess(a.mode);
