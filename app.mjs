@@ -11,7 +11,7 @@ let peer=null,conn=null,host=false,active=false,connected=false,room='',name='',
 let lastCelebrateEpoch='',lastExperienceSignature='',messages=[],messageIds=new Set(),unread=0,drafts={},hideTimer=null,retryTimer=null,connectionTimer=null,pingTimer=null,toastTimer=null,chatTypingTimer=null,lastTyping=0,closed=false;
 let call=null,stream=null,voice='off',voiceId='',voiceToken=0,micMuted=false,soundMuted=false,partnerMicMuted=false,playbackBlocked=false,callStarted=0,callTimeout=null,voiceClock=null;
 const audio=$('remoteaudio');
-let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1;
+let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1,hostClockOffset=0;
 const online=()=>active&&connected&&conn?.open&&navigator.onLine&&stamp()-lastSeen<17000&&!closed;
 const send=d=>{try{if(conn?.open){conn.send({v:2,...d});return true}}catch{}return false};
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3600)}
@@ -63,7 +63,7 @@ function chessClockUpdate(){
  if(c.status==='playing'&&c.mode!=='classic'&&host&&online()&&clockNow(c)[c.turn]<=0){
   act({type:'chess-tick'});return;
  }
- const current=clockNow(c);
+ const current=clockNow(c,stamp()+(host?0:hostClockOffset));
  document.querySelectorAll('[data-chess-clock]').forEach(el=>{
   const seat=Number(el.dataset.chessClock);
   const v=current[seat];
@@ -91,8 +91,8 @@ function validState(s){return s&&Number.isInteger(s.rev)&&Number.isInteger(s.epo
 function receive(d){if(d.type==='welcome'&&!host&&validState(d.state)){connected=true;blocked=false;joinCount=0;S=d.state;if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});partner=String(d.name||'Sweetheart').slice(0,24);if(Array.isArray(d.messages)){messages=d.messages.filter(m=>m&&typeof m.text==='string'&&typeof m.id==='string').slice(-80);messageIds=new Set(messages.map(m=>m.id))}toast('Your partner is here!');render();return}
 if(d.type==='denied'&&!host){blocked=true;connecting=false;toast(String(d.reason||'Room unavailable').slice(0,180));conn?.close();presence();return}
 if(!connected)return;
-if(d.type==='ping'){presenceAway=!!d.away;send({type:'pong',away:document.hidden});presence();return}
-if(d.type==='pong'){presenceAway=!!d.away;presence();return}
+if(d.type==='ping'){presenceAway=!!d.away;send({type:'pong',away:document.hidden,echo:d.sentAt||0,hostNow:stamp()});presence();return}
+if(d.type==='pong'){presenceAway=!!d.away;if(!host&&Number.isFinite(d.hostNow)&&Number.isFinite(d.echo)&&d.echo>0){const end=stamp();const elapsed=Math.max(0,end-d.echo);if(elapsed<30000)hostClockOffset=d.hostNow+elapsed/2-end;}presence();return}
 if(d.type==='sync'&&host){send({type:'snapshot',state:viewForSeat(S,1)});return}
 if(d.type==='snapshot'&&!host&&validState(d.state)&&d.state.rev>=S.rev){const gained=d.state.hearts>S.hearts;S=d.state;if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});renderGame();presence();if(gained)celebrate();return}
 if(d.type==='action'&&host&&online()){apply(d.action,1);return}
@@ -167,7 +167,7 @@ if(g==='truth'){h+='<h2>Truth or Dare</h2><div class="turnline"><span class="tur
 if(['quiz','rather','notes'].includes(g)){const question=g==='quiz'?QUESTIONS[(S.round-1)%QUESTIONS.length]:g==='notes'?'Tell them something beautiful.':'What would you rather?';h+='<h2>'+esc(question)+'</h2><p class="subtitle">Both answers stay hidden until you each submit.</p>';if(S.phase==='reveal'){const options=g==='rather'?RATHER[(S.round-1)%RATHER.length]:null;h+='<p class="reveal-title">Two hearts, one reveal.</p>';for(const i of [seat,1-seat])h+='<div class="answerbox"><small>'+(i===seat?'YOU':esc(partner).toUpperCase())+'</small><p>'+esc(options?options[S.answers[i]]:S.answers[i])+'</p></div>';h+=S.ready[seat]?'<div class="waiting">Waiting for your partner to continue…</div>':button('next','Ready for next round')}else if(S.answers[seat]!==null)h+='<div class="waiting">Your answer is sealed. Waiting for your partner…</div>';else if(g==='rather')h+='<div class="choices">'+RATHER[(S.round-1)%RATHER.length].map((x,i)=>button('option',esc(x),'choice','data-value="'+i+'"')).join('')+'</div>';else h+=ta(g==='notes'?'Write your secret love note':'Share your answer',g==='notes'?1000:500)+button('answer',g==='notes'?'Seal my love note':'Lock my answer')}
 if(g==='chess'){
  if(chessLastEpoch!==S.epoch||chessLastWhite!==S.chess.white){chessLastEpoch=S.epoch;chessLastWhite=S.chess.white;chessFlip=false;chessSelection=null;chessPromotion=null}
- $('gamebody').innerHTML=chessBoardView(S.chess,seat,ChessCtor,chessSelection,chessFlip,chessPromotion);
+ $('gamebody').innerHTML=chessBoardView(S.chess,seat,ChessCtor,chessSelection,chessFlip,chessPromotion,stamp()+(host?0:hostClockOffset));
  updateExperience();chessClockUpdate();return;
 }
 if(g==='match'){h+='<h2>'+ (S.phase==='win'?'All hearts found. Together.':'Find all six perfect pairs.')+'</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span></div><p class="subtitle">'+S.moves+' attempts · '+S.found.length/2+' pairs matched</p>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';h+='<div class="memorygrid">'+S.board.map((x,i)=>'<button class="memorycard '+(S.found.includes(i)?'found revealed':S.open.includes(i)?'revealed':'')+'" data-do="flip" data-index="'+i+'" '+(!mine||S.open.length===2||S.open.includes(i)||S.found.includes(i)?'disabled':'')+' aria-label="Card '+(i+1)+'">'+(S.found.includes(i)||S.open.includes(i)?x:'♡')+'</button>').join('')+'</div>';if(S.phase==='win')h+=S.ready[seat]?'<div class="waiting">Waiting for partner to replay…</div>':button('replay','Play another round')}
@@ -242,4 +242,4 @@ $('call').onclick=startVoice;$('hangup').onclick=()=>stopVoice(true);$('acceptca
 $('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(!host&&!conn?.open){connecting=false;join()}}presence()}});
 window.addEventListener('pagehide',e=>{stopVoice(true);if(!e.persisted)peer?.destroy()});
 window.addEventListener('pageshow',e=>{if(e.persisted&&active){if(peer?.disconnected&&!peer.destroyed){try{peer.reconnect()}catch{}}if(!host&&!conn?.open){connecting=false;join()}send({type:'sync'});presence()}});window.addEventListener('beforeunload',e=>{if(host&&active&&connected){e.preventDefault();e.returnValue=''}});
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden});presence();if(!host&&!conn?.open&&!connecting&&joinCount<5&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);refreshVoice();
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden,sentAt:stamp()});presence();if(!host&&!conn?.open&&!connecting&&joinCount<5&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);refreshVoice();
