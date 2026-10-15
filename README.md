@@ -1,12 +1,13 @@
 # Love Arcade 💗
 
-A lightweight, mobile-first six-game date-night arcade for two players. Created by **azhardotcoder**.
+A lightweight, mobile-first eleven-game date-night arcade for two players. Created by **azhardotcoder**.
 
 **Live site:** https://love-arcade-generated-by-ai.vercel.app/  
 **Repository:** https://github.com/azhardotcoder/love-arcade-generated-by-ai
 
 ## Features
 
+- **Love Pictionary:** live shared drawing previews, private artist prompts, guess scoring, timed rounds, alternated roles.\n- **XOXO Battle:** turn-based hearts-versus-kisses grid, outcome checks, scorekeeping and two-player rematches.\n- **Spin the Love Bottle:** four challenge moods, synchronized reveal, partner approval/retry and skip.\n- **Together We Escape:** four cooperative rooms with distinct clues, hints, answers and mutual progression.\n- **Dream Date Builder:** five date stages, hidden independent selections and shared reveals.\n
 - Chess Royale with legal chess.js moves, check/checkmate, castling, en passant, pawn promotion, rapid/blitz/classic clocks, takebacks, draw offers, resignation, rematches, move list and PGN export.\n- Truth or Dare with server-like **host-authoritative** approval and turn switching, retry, and optional skip.
 - Love Quiz, Would You Rather, secret Love Notes, and cooperative Heart Match.
 - Two-person invite-only sessions using a 12-character room code and PeerJS WebRTC data channels.
