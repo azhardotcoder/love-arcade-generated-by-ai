@@ -161,7 +161,12 @@ test('five new games remain synchronized across two browser players',async({cont
  await expect(g.locator('#loveCanvas')).toBeVisible();
  await expect(h.locator('.secret-prompt')).toBeVisible();
  await expect(g.locator('.secret-prompt')).toHaveCount(0);
- await h.locator('#loveCanvas').click({position:{x:45,y:45}});
+ const boardBox=await h.locator('#loveCanvas').boundingBox();
+ await h.mouse.move(boardBox.x+35,boardBox.y+35);
+ await h.mouse.down();
+ await h.mouse.move(boardBox.x+100,boardBox.y+85,{steps:4});
+ await expect(g.locator('#remoteDraft')).toHaveCount(1,{timeout:5000});
+ await h.mouse.up();
  await expect(g.locator('#loveCanvas polyline')).toHaveCount(1);
  await g.locator('#guessInput').fill('butterfly');
  await g.locator('[data-couple-action=guess]').click();
