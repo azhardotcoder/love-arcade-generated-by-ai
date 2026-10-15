@@ -5,3 +5,117 @@
 @media(max-width:850px){.shell{padding:0 22px}.welcome-grid{gap:25px}.welcome-copy h1{font-size:57px;letter-spacing:-2.5px}.entry{padding:23px}.hero h2{font-size:49px}.gamecards{grid-template-columns:repeat(2,1fr)}.gamecard:nth-child(5){grid-column:auto}.gamecard{min-height:230px}.session-stat span{display:none}.you{display:none}}
 @media(max-width:580px){.shell{padding:0 16px}.topbar{height:75px;margin-bottom:20px}.brand{font-size:16px}.brandmark{width:35px;height:35px}.brand small{font-size:7px;letter-spacing:2px}.edition{display:none}.welcome-grid{display:block;padding:24px 0}.welcome-copy h1{font-size:54px;line-height:1.1;letter-spacing:-2.8px;margin:22px 0}.welcome-copy p{font-size:14px}.perks{font-size:9px;gap:12px;margin:15px 0 27px}.entry{padding:23px}.city{height:135px}.roomhead{flex-direction:column;align-items:stretch;gap:10px}.roomhead h2{font-size:25px}.roomtools{display:flex;justify-content:space-between}.codebutton{font-size:11px}.leave{padding:10px;font-size:11px}.players{gap:9px;padding:12px 10px}.avatar{height:31px;width:31px;border-radius:9px;font-size:12px}.player{gap:6px;flex:1}.player b{max-width:96px;font-size:11px}.player small{font-size:9px}.between{display:none}.session-stat{font-size:9px}.session-stat b{font-size:15px}.hero{height:320px;margin-top:18px}.hero-copy{padding:27px 23px}.hero h2{font-size:44px;letter-spacing:-2px}.hero p{font-size:11px;max-width:157px}.hero .primary{padding:10px;font-size:11px}.hero .city{width:70%}.hero .sun{height:185px;width:185px;top:60px;left:66%}.bigheart{font-size:80px;left:48%;top:123px}.heroindex{left:23px;font-size:7px}.citylabel{font-size:7px;letter-spacing:1px}.sectionhead h2{font-size:19px}.sectionhead .tag{display:none}.gamecards{gap:11px}.gamecard{padding:15px;border-radius:14px;min-height:218px}.gamecard .tagline{font-size:7px}.gamecard .art{font-size:46px;height:72px}.gamecard h3{font-size:17px;margin:12px 0 5px}.gamecard p{font-size:10px}.gamecard:nth-child(4),.gamecard:nth-child(5){min-height:218px}.roomfooter{font-size:7px;padding-bottom:160px}.dock{bottom:max(10px,env(safe-area-inset-bottom));width:calc(100% - 18px);flex-wrap:wrap;gap:6px;padding:9px 12px;border-radius:15px}.voice-summary{width:100%;gap:9px;padding:0 4px 4px}.voice-summary b{font-size:11px}.voice-summary small{font-size:9px}.dockactions{width:100%;justify-content:space-around;gap:5px}.dockbtn{min-width:0;flex:1;min-height:45px;padding:4px}.dockbtn svg{height:18px;width:18px}.dockbtn span{font-size:8px}.chatpanel{right:9px;bottom:123px;width:calc(100% - 18px);height:min(530px,calc(100dvh - 155px))}.gamehead{gap:5px}.gamehead .tag{font-size:8px;letter-spacing:0}.gamehead .secondary{padding:8px 10px;min-height:38px;font-size:10px}.game-surface{padding:22px 17px;border-radius:17px}.game-surface h2{font-size:25px}.steps span{font-size:7px}.choice{padding:17px 12px;font-size:16px;min-height:118px}.memorygrid{gap:8px}.memorycard{font-size:24px;border-radius:10px}.gameactions .primary,.gameactions .secondary{font-size:11px;padding:11px 12px}.turnchip{font-size:10px}.notice{font-size:11px}.welcome-city{height:130px}.callbanner{flex-wrap:wrap;gap:8px}.callbanner span{flex-basis:100%}.callbanner button{flex:1}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+
+/* v2.1 — mobile sunset/footer repair.
+   Keep the welcome artwork separate from the in-room hero artwork. */
+#welcome>.city {
+  position:relative;
+  isolation:isolate;
+  height:228px;
+  margin-top:18px;
+  margin-bottom:20px;
+  overflow:hidden;
+  opacity:1;
+  border-radius:18px 18px 0 0;
+  background:
+    radial-gradient(ellipse at 62% 58%,rgba(255,151,175,.16),transparent 55%),
+    linear-gradient(180deg,#20152e 0%,#30203d 46%,#22182f 100%);
+  -webkit-mask-image:none;
+  mask-image:none;
+}
+#welcome>.city::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  opacity:.7;
+  background-image:
+    radial-gradient(circle,#ffd9d8 0 1px,transparent 1.6px),
+    radial-gradient(circle,#ffafd0 0 1px,transparent 1.5px);
+  background-size:97px 77px,131px 96px;
+  background-position:13px 9px,64px 49px;
+}
+#welcome>.city .sun {
+  z-index:1;
+  left:62%;
+  top:20px;
+  width:172px;
+  height:172px;
+  border-radius:50%;
+  background:linear-gradient(180deg,#ffe5bb 0%,#ffbcae 40%,#ee91ac 76%,#b66b98 100%);
+  box-shadow:0 0 0 12px #ffb1c50b,0 0 65px 21px #f6a6b438;
+  transform:translateX(-50%);
+}
+#welcome>.city .skyline {
+  z-index:2;
+  bottom:49px;
+  height:82px;
+  background:linear-gradient(180deg,#24192f,#141021);
+  clip-path:polygon(0 100%,0 75%,6% 75%,6% 60%,12% 60%,12% 79%,18% 79%,18% 45%,24% 45%,24% 76%,32% 76%,32% 59%,38% 59%,38% 84%,45% 84%,45% 48%,51% 48%,51% 72%,58% 72%,58% 62%,64% 62%,64% 83%,71% 83%,71% 46%,78% 46%,78% 76%,86% 76%,86% 55%,93% 55%,93% 72%,100% 72%,100% 100%);
+}
+#welcome>.city .road {
+  z-index:3;
+  bottom:-54px;
+  height:122px;
+  width:125%;
+  left:-12.5%;
+  transform:perspective(185px) rotateX(50deg);
+  background:
+    repeating-linear-gradient(90deg,transparent 0 63px,#ef9ac938 64px 65px),
+    repeating-linear-gradient(0deg,transparent 0 26px,#ef9ac92c 27px 28px),
+    linear-gradient(180deg,#261b37,#120e20);
+  border-top:1px solid #f8a7d078;
+}
+#welcome>.city .citylabel {
+  z-index:4;
+  top:15px;
+  bottom:auto;
+  right:16px;
+  max-width:55%;
+  text-align:right;
+  font-size:9px;
+  line-height:1.5;
+  color:#ffe4ef;
+  letter-spacing:1.8px;
+  text-shadow:0 1px 8px #160e27;
+}
+#welcome {
+  padding-bottom:calc(22px + env(safe-area-inset-bottom,0px));
+}
+@media(max-width:580px) {
+  #welcome>.city {
+    height:198px;
+    margin-top:17px;
+    margin-bottom:34px;
+    border-radius:15px 15px 0 0;
+  }
+  #welcome>.city .sun {
+    top:22px;
+    left:60%;
+    width:137px;
+    height:137px;
+    box-shadow:0 0 0 8px #ffb4cb0b,0 0 46px 16px #f4a5b02f;
+  }
+  #welcome>.city .skyline {
+    bottom:45px;
+    height:57px;
+  }
+  #welcome>.city .road {
+    bottom:-58px;
+    height:111px;
+    left:-15%;
+    width:130%;
+  }
+  #welcome>.city .citylabel {
+    top:12px;
+    right:12px;
+    max-width:54%;
+    font-size:7px;
+    letter-spacing:1px;
+  }
+  #welcome {
+    padding-bottom:calc(46px + env(safe-area-inset-bottom,0px));
+  }
+}
