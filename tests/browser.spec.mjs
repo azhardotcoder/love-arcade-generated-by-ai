@@ -79,3 +79,27 @@ test('UX stylesheet and game status hooks are available',async({page})=>{
  await expect(page.locator('#gameStatus')).toHaveAttribute('role','status');
  await expect(page.locator('#gameName')).toHaveCount(1);
 });
+
+test('voice controls have unique targets instead of colliding with SVG symbols',async({page})=>{
+ await page.goto('/');
+ const collisions=await page.evaluate(()=>{
+  const ids=[...document.querySelectorAll('[id]')].map(el=>el.id);
+  return ids.filter((id,i)=>ids.indexOf(id)!==i);
+ });
+ expect(collisions).toEqual([]);
+ await expect(page.locator('#mic')).toHaveCount(1);
+ await expect(page.locator('#hangup')).toHaveCount(1);
+ await expect(page.locator('#mic')).toHaveJSProperty('tagName','BUTTON');
+ await expect(page.locator('#hangup')).toHaveJSProperty('tagName','BUTTON');
+ await expect(page.locator('symbol#icon-mic')).toHaveCount(1);
+ await expect(page.locator('symbol#icon-hangup')).toHaveCount(1);
+});
+test('presence indicators use green online, red offline and waiting state',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:/Create our room/i}).click();
+ await expect(page.locator('#room')).toBeVisible();
+ await expect(page.locator('#mystatus')).toHaveClass(/is-online/);
+ await expect(page.locator('#theirstatus')).toHaveClass(/is-waiting/);
+ await page.evaluate(()=>window.dispatchEvent(new Event('offline')));
+ await expect(page.locator('#mystatus')).toHaveClass(/is-offline/);
+});
