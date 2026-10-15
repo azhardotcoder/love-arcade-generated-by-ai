@@ -1,4 +1,6 @@
-import {GAMES,QUESTIONS,RATHER,fresh,reduce,viewForSeat} from './engine.mjs';
+import {GAMES,QUESTIONS,RATHER,fresh,reduce,viewForSeat,registerChessRules} from './engine.mjs';
+import {chessLibrary,clockNow} from './chess.mjs';
+import {chessBoardView,legalMoves,promotionRequired,pgnOf,formatClock} from './chess-ui.mjs';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const svg=n=>'<svg><use href="#icon-'+n+'"/></svg>';
@@ -9,10 +11,66 @@ let peer=null,conn=null,host=false,active=false,connected=false,room='',name='',
 let lastCelebrateEpoch='',lastExperienceSignature='',messages=[],messageIds=new Set(),unread=0,drafts={},hideTimer=null,retryTimer=null,connectionTimer=null,pingTimer=null,toastTimer=null,chatTypingTimer=null,lastTyping=0,closed=false;
 let call=null,stream=null,voice='off',voiceId='',voiceToken=0,micMuted=false,soundMuted=false,partnerMicMuted=false,playbackBlocked=false,callStarted=0,callTimeout=null,voiceClock=null;
 const audio=$('remoteaudio');
+let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1;
 const online=()=>active&&connected&&conn?.open&&navigator.onLine&&stamp()-lastSeen<17000&&!closed;
 const send=d=>{try{if(conn?.open){conn.send({v:2,...d});return true}}catch{}return false};
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3600)}
 function modal(title,text,confirm,label='Continue'){$('dialogtitle').textContent=title;$('dialogbody').textContent=text;const a=$('dialogactions');a.replaceChildren();if(confirm){const b=document.createElement('button');b.className='secondary';b.textContent='Cancel';b.onclick=()=>$('dialog').close();a.appendChild(b)}const y=document.createElement('button');y.className='primary';y.textContent=confirm?label:'Got it';y.onclick=()=>{$('dialog').close();confirm?.()};a.appendChild(y);$('dialog').showModal()}
+async function loadChess(){
+ if(ChessCtor)return ChessCtor;
+ if(chessLoading)return chessLoading;
+ chessLoading=chessLibrary().then(({Chess})=>{
+  ChessCtor=Chess;registerChessRules(Chess);
+  chessLoading=null;
+  if(S.game==='chess')renderGame();
+  return Chess;
+ }).catch(e=>{chessLoading=null;toast('Unable to load chess rules. Try again with internet.');throw e});
+ return chessLoading;
+}
+async function startSelectedGame(type){
+ if(type==='chess'){
+  try{await loadChess()}catch{return}
+  if(!active||!online())return;
+ }
+ chessSelection=null;chessPromotion=null;chessFlip=false;act({type:'start',game:type});
+}
+function chessAttempt(from,to){
+ if(!ChessCtor||!online()||S.game!=='chess'||S.chess.status!=='playing')return;
+ if(S.chess.turn!==(host?0:1))return;
+ const moves=legalMoves(ChessCtor,S.chess,from).filter(m=>m.to===to);
+ if(!moves.length)return;
+ if(promotionRequired(ChessCtor,S.chess,from,to)){chessPromotion={from,to};renderGame();return}
+ chessSelection=null;act({type:'chess-move',from,to,promotion:'q'});
+}
+function chessPickSquare(sq){
+ if(!ChessCtor||S.game!=='chess'||!online()||S.chess.status!=='playing'||S.chess.turn!==(host?0:1))return;
+ const g=new ChessCtor(S.chess.fen),piece=g.get(sq);
+ const color=(host?0:1)===S.chess.white?'w':'b';
+ if(chessSelection===sq){chessSelection=null;renderGame();return}
+ if(chessSelection&&legalMoves(ChessCtor,S.chess,chessSelection).some(m=>m.to===sq)){chessAttempt(chessSelection,sq);return}
+ chessSelection=piece&&piece.color===color?sq:null;
+ renderGame();
+}
+function chessClipboard(){
+ if(!ChessCtor||!S.chess)return;
+ const pgn=pgnOf(ChessCtor,S.chess);
+ if(!pgn)return;
+ navigator.clipboard?.writeText(pgn).then(()=>toast('Chess PGN copied!')).catch(()=>modal('Your chess PGN',pgn));
+}
+function chessClockUpdate(){
+ if(!active||S.game!=='chess'||!S.chess)return;
+ const c=S.chess;
+ if(c.status==='playing'&&c.mode!=='classic'&&host&&online()&&clockNow(c)[c.turn]<=0){
+  act({type:'chess-tick'});return;
+ }
+ const current=clockNow(c);
+ document.querySelectorAll('[data-chess-clock]').forEach(el=>{
+  const seat=Number(el.dataset.chessClock);
+  const v=current[seat];
+  el.textContent=c.mode==='classic'?'∞':formatClock(v);
+  el.classList.toggle('low',c.mode!=='classic'&&c.status==='playing'&&c.turn===seat&&v<30000);
+ });
+}
 function busy(v){$('create').disabled=v;$('join').disabled=v;$('create').textContent=v?'Connecting...':'Create our room →'}
 function codegen(){const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from(crypto.getRandomValues(new Uint8Array(12)),v=>abc[v%abc.length]).join('')}
 function extractCode(value){try{if(value.includes('://')){const u=new URL(value);value=new URLSearchParams(u.hash.slice(1)).get('room')||u.searchParams.get('room')||''}}catch{}return value.trim().replace(/[\s-]/g,'').toUpperCase()}
@@ -30,13 +88,13 @@ function join(){if(!active||host||connecting||conn?.open||blocked||!peer?.open||
 function scheduleJoin(){if(!host&&active&&!blocked&&joinCount<5){clearTimeout(retryTimer);retryTimer=setTimeout(join,3500)}}
 function bind(c){if(conn&&conn!==c)conn.close();conn=c;connected=false;c.on('open',()=>{if(!active||conn!==c)return;lastSeen=stamp();connecting=false;clearTimeout(connectionTimer);if(host){connected=true;send({type:'welcome',name,state:viewForSeat(S,1),messages:messages.slice(-80)});toast(partner+' joined your room.');addSystem(partner+' joined the room.')}send({type:'ping',away:document.hidden});resendPendingMessages();render()});c.on('data',d=>{if(!active||conn!==c||!d||d.v!==2||typeof d.type!=='string')return;try{if(JSON.stringify(d).length>50000)return}catch{return}lastSeen=stamp();receive(d)});c.on('close',()=>{if(conn!==c||!active)return;conn=null;connected=false;connecting=false;stopVoice(false);addSystem(partner+' went offline.');presence();scheduleJoin()});c.on('error',()=>{if(conn!==c)return;conn=null;connected=false;connecting=false;stopVoice(false);presence();scheduleJoin()})}
 function validState(s){return s&&Number.isInteger(s.rev)&&Number.isInteger(s.epoch)&&Number.isInteger(s.round)&&(s.game===null||Object.hasOwn(GAMES,s.game))&&[0,1].includes(s.turn)&&Array.isArray(s.answers)&&Array.isArray(s.ready)&&Array.isArray(s.board)&&Array.isArray(s.found)}
-function receive(d){if(d.type==='welcome'&&!host&&validState(d.state)){connected=true;blocked=false;joinCount=0;S=d.state;partner=String(d.name||'Sweetheart').slice(0,24);if(Array.isArray(d.messages)){messages=d.messages.filter(m=>m&&typeof m.text==='string'&&typeof m.id==='string').slice(-80);messageIds=new Set(messages.map(m=>m.id))}toast('Your partner is here!');render();return}
+function receive(d){if(d.type==='welcome'&&!host&&validState(d.state)){connected=true;blocked=false;joinCount=0;S=d.state;if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});partner=String(d.name||'Sweetheart').slice(0,24);if(Array.isArray(d.messages)){messages=d.messages.filter(m=>m&&typeof m.text==='string'&&typeof m.id==='string').slice(-80);messageIds=new Set(messages.map(m=>m.id))}toast('Your partner is here!');render();return}
 if(d.type==='denied'&&!host){blocked=true;connecting=false;toast(String(d.reason||'Room unavailable').slice(0,180));conn?.close();presence();return}
 if(!connected)return;
 if(d.type==='ping'){presenceAway=!!d.away;send({type:'pong',away:document.hidden});presence();return}
 if(d.type==='pong'){presenceAway=!!d.away;presence();return}
 if(d.type==='sync'&&host){send({type:'snapshot',state:viewForSeat(S,1)});return}
-if(d.type==='snapshot'&&!host&&validState(d.state)&&d.state.rev>=S.rev){const gained=d.state.hearts>S.hearts;S=d.state;renderGame();presence();if(gained)celebrate();return}
+if(d.type==='snapshot'&&!host&&validState(d.state)&&d.state.rev>=S.rev){const gained=d.state.hearts>S.hearts;S=d.state;if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});renderGame();presence();if(gained)celebrate();return}
 if(d.type==='action'&&host&&online()){apply(d.action,1);return}
 if(d.type==='left'){stopVoice(false);const c=conn;conn=null;connected=false;c?.close();if(host){guestSession='';partner='Your partner';S=fresh();messages=[];messageIds.clear();drafts={};toast('Your partner left. Their seat is now available.');render()}else{blocked=true;closed=true;toast('Your partner ended the room.');presence()}return}
 if(d.type==='message'&&typeof d.text==='string'&&typeof d.id==='string'&&/^[a-f0-9]{32}$/.test(d.id)){
@@ -55,7 +113,7 @@ if(d.type.startsWith('voice-'))receiveVoice(d);
 }
 function trimMessages(){messages=messages.slice(-100);messageIds=new Set(messages.map(x=>x.id))}
 function addSystem(text){messages.push({id:uid(),who:-1,text,time:stamp()});trimMessages();drawChat()}
-function apply(action,seat){const next=reduce(S,action,seat);if(!next)return;const gained=next.hearts>S.hearts;S=next;send({type:'snapshot',state:viewForSeat(S,1)});renderGame();presence();if(gained)celebrate();clearTimeout(hideTimer);hideTimer=null;if(S.game==='match'&&S.open.length===2){const rev=S.rev;hideTimer=setTimeout(()=>{if(host&&online())apply({type:'hide',epoch:S.epoch,round:S.round,rev},0)},1400)}}
+function apply(action,seat){const next=reduce(S,action,seat);if(!next)return;const gained=next.hearts>S.hearts;S=next;send({type:'snapshot',state:viewForSeat(S,1)});if(S.game==='chess')chessSelection=null;renderGame();presence();if(gained)celebrate();clearTimeout(hideTimer);hideTimer=null;if(S.game==='match'&&S.open.length===2){const rev=S.rev;hideTimer=setTimeout(()=>{if(host&&online())apply({type:'hide',epoch:S.epoch,round:S.round,rev},0)},1400)}}
 function act(a){if(!online()){toast('Wait until your partner is connected.');return}const data={epoch:S.epoch,round:S.round,...a};if(host)apply(data,0);else send({type:'action',action:data})}
 function presence(){if(!active)return;const is=online();$('myname').textContent=name;$('myavatar').textContent=name[0]?.toUpperCase()||'Y';$('theirname').textContent=partner;$('theiravatar').textContent=connected||guestSession?partner[0]?.toUpperCase()||'?':'?';const myOnline=navigator.onLine;const myStatus=$('mystatus');const theirStatus=$('theirstatus');
  myStatus.className='presence-label '+(myOnline?'is-online':'is-offline');
@@ -78,7 +136,8 @@ function updateExperience(){
  if(S.game&&status){
   const seat=host?0:1,mine=S.turn===seat;
   let title='Your move',detail='Pick an action to continue.',symbol='✦',count='ROUND '+S.round;
-  if(S.game==='truth'){
+  if(S.game==='chess'){const c=S.chess;title=c?.status==='finished'?'Match complete':c?.turn===seat?'Your move · Chess Royale':'Opponent thinking…';detail=c?.status==='finished'?c.result:c?.check?'Check! Protect your king.':'Tap a piece to see legal squares. You can also drag pieces.';symbol='♞';count='MOVE '+(Math.floor((c?.moves?.length||0)/2)+1)}
+  else if(S.game==='truth'){
    if(S.phase==='choose'){title=mine?'Your turn: choose Truth or Dare':partner+' is choosing';detail=mine?'Pick your challenge. Your partner approves once it is done.':'Watch the next challenge appear on both screens.';symbol=mine?'♡':'◌'}
    else if(S.phase==='task'){title=mine?'Challenge in progress':partner+' is completing a challenge';detail=mine?'Answer by text, chat or voice, then tap completed.':'You will get the Approve / Try Again choice next.';symbol='✧'}
    else{title=mine?'Awaiting partner approval':'Your decision';detail=mine?'Your turn changes only after your partner approves.':'Approve the completed task or ask for another try.';symbol='✓'}
@@ -103,9 +162,14 @@ function celebrate(){
 }
 function render(){ $('gamecards').innerHTML=Object.entries(GAMES).map(([id,g],i)=>'<button class="gamecard '+g.theme+'" data-game="'+id+'"><span class="tagline">0'+(i+1)+' / '+g.label+'</span><span class="arrow">↗</span><span class="art">'+g.icon+'</span><h3>'+g.title+'</h3><p>'+g.desc+'</p></button>').join('');renderGame();drawChat();presence();updateExperience()}
 const button=(k,s,cl='primary',extra='')=>'<button class="'+cl+'" data-do="'+k+'" '+extra+'>'+s+'</button>';
-function renderGame(){const g=S.game;$('lobby').hidden=!!g;$('game').hidden=!g;if(!g){$('gamebody').replaceChildren();return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
+function renderGame(){const g=S.game;$('lobby').hidden=!!g;$('game').hidden=!g;if(!g){$('gamebody').replaceChildren();return}if(g==='chess'&&!ChessCtor){$('gamebody').innerHTML='<div class="waiting">Loading professional chess engine…</div>';loadChess().catch(()=>{});return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
 if(g==='truth'){h+='<h2>Truth or Dare</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span><span class="fineprint">Approval required before switching turns</span></div><div class="steps"><span class="'+(S.phase==='choose'?'active':'')+'">01 CHOOSE</span><span class="'+(S.phase==='task'?'active':'')+'">02 COMPLETE</span><span class="'+(S.phase==='approval'?'active':'')+'">03 APPROVE</span></div>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';if(S.phase==='choose')h+=mine?'<p class="subtitle">Be honest, be brave, be you.</p><div class="choices">'+button('truth','♡ Truth<small>Open up a little.</small>','choice')+button('dare','✧ Dare<small>Make a little magic.</small>','choice')+'</div>':'<div class="waiting">Your partner is choosing Truth or Dare…</div>';else{h+='<span class="eyebrow pink">'+esc(S.kind.toUpperCase())+'</span><h2>'+esc(S.task)+'</h2>';if(S.reply)h+='<div class="answerbox"><small>THE ANSWER</small><p>'+esc(S.reply)+'</p></div>';if(S.phase==='task')h+=mine?ta('Optional: type your answer or use voice/chat',500)+'<div class="gameactions">'+button('complete','✓ I completed it')+button('skip','Skip (no penalty)','secondary')+'</div>':'<div class="waiting">'+esc(partner)+' is completing the task…</div>';else h+=mine?'<div class="waiting">Waiting for partner approval before turns switch.</div><div class="gameactions">'+button('skip','Skip instead','secondary')+'</div>':'<p class="subtitle">Did they complete the challenge?</p><div class="gameactions">'+button('approve','✓ Approve & switch turns')+button('retry','Try again','secondary')+'</div>'}h+='<p class="fineprint">You can always skip. There is never a penalty.</p>'}
 if(['quiz','rather','notes'].includes(g)){const question=g==='quiz'?QUESTIONS[(S.round-1)%QUESTIONS.length]:g==='notes'?'Tell them something beautiful.':'What would you rather?';h+='<h2>'+esc(question)+'</h2><p class="subtitle">Both answers stay hidden until you each submit.</p>';if(S.phase==='reveal'){const options=g==='rather'?RATHER[(S.round-1)%RATHER.length]:null;h+='<p class="reveal-title">Two hearts, one reveal.</p>';for(const i of [seat,1-seat])h+='<div class="answerbox"><small>'+(i===seat?'YOU':esc(partner).toUpperCase())+'</small><p>'+esc(options?options[S.answers[i]]:S.answers[i])+'</p></div>';h+=S.ready[seat]?'<div class="waiting">Waiting for your partner to continue…</div>':button('next','Ready for next round')}else if(S.answers[seat]!==null)h+='<div class="waiting">Your answer is sealed. Waiting for your partner…</div>';else if(g==='rather')h+='<div class="choices">'+RATHER[(S.round-1)%RATHER.length].map((x,i)=>button('option',esc(x),'choice','data-value="'+i+'"')).join('')+'</div>';else h+=ta(g==='notes'?'Write your secret love note':'Share your answer',g==='notes'?1000:500)+button('answer',g==='notes'?'Seal my love note':'Lock my answer')}
+if(g==='chess'){
+ if(chessLastEpoch!==S.epoch||chessLastWhite!==S.chess.white){chessLastEpoch=S.epoch;chessLastWhite=S.chess.white;chessFlip=false;chessSelection=null;chessPromotion=null}
+ $('gamebody').innerHTML=chessBoardView(S.chess,seat,ChessCtor,chessSelection,chessFlip,chessPromotion);
+ updateExperience();chessClockUpdate();return;
+}
 if(g==='match'){h+='<h2>'+ (S.phase==='win'?'All hearts found. Together.':'Find all six perfect pairs.')+'</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span></div><p class="subtitle">'+S.moves+' attempts · '+S.found.length/2+' pairs matched</p>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';h+='<div class="memorygrid">'+S.board.map((x,i)=>'<button class="memorycard '+(S.found.includes(i)?'found revealed':S.open.includes(i)?'revealed':'')+'" data-do="flip" data-index="'+i+'" '+(!mine||S.open.length===2||S.open.includes(i)||S.found.includes(i)?'disabled':'')+' aria-label="Card '+(i+1)+'">'+(S.found.includes(i)||S.open.includes(i)?x:'♡')+'</button>').join('')+'</div>';if(S.phase==='win')h+=S.ready[seat]?'<div class="waiting">Waiting for partner to replay…</div>':button('replay','Play another round')}
 $('gamebody').innerHTML=h+'</fieldset></div>';updateExperience();const el=$('response');if(el)el.addEventListener('input',()=>drafts[el.dataset.key]=el.value)}
 function drawChat(){const log=$('chatlog');log.innerHTML=messages.length?messages.map(m=>m.who<0?'<div class="systemmsg">'+esc(m.text)+'</div>':'<div class="bubble '+(m.who===(host?0:1)?'mine':'')+'">'+esc(m.text)+'<small>'+(m.who===(host?0:1)?'You':esc(partner))+' · '+new Date(m.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+(m.who===(host?0:1)?' · '+(m.delivered?'Delivered':'Sent'):'')+'</small></div>').join(''):'<div class="chatempty">♡<p>A little hello goes a long way.<br>Your conversation starts here.</p></div>';log.scrollTop=log.scrollHeight;$('unread').hidden=unread===0;$('unread').textContent=unread}
@@ -139,11 +203,43 @@ $('create').onclick=()=>create(true);$('join').onclick=()=>create(false);$('room
 $('leave').onclick=()=>modal('Leave this room?',host?'You are hosting. Leaving ends this room for both players, including the call and chat.':'Your chat and game progress will clear from this device.',()=>leave(true),'Leave room');
 $('help').onclick=()=>modal('How to play','Create a room and share the code with your partner. Both players must keep this page open. There are five games, a private session chat, and optional voice calling.\n\nYour partner must accept each voice call and give microphone permission. Rooms and chats are not saved. Your voice is never recorded by this app.\n\nA peer-to-peer connection may fail on restrictive Wi-Fi or mobile networks. Try another network if it does.');
 $('rules').onclick=()=>modal(GAMES[S.game]?.title||'Game rules',({truth:'Choose Truth or Dare on your turn. Complete the task, then your partner approves or asks you to retry. Only approval changes turns. Skip freely.',quiz:'Both write answers privately and reveal together. Both must tap ready for the next round.',rather:'Both choose one of two romantic options secretly. Reveal your choices together.',notes:'Both write secret love notes that reveal together once submitted.',match:'Flip two cards on your turn. Matched pairs stay revealed; if they do not match, your partner takes over.'})[S.game]||'Pick a game.');
-$('gamecards').onclick=e=>{const b=e.target.closest('[data-game]');if(b)act({type:'start',game:b.dataset.game})};$('featured').onclick=()=>act({type:'start',game:'truth'});$('back').onclick=()=>modal('Return to games?','This resets the current game for both players. Your call and chat remain connected.',()=>act({type:'lobby'}),'Back to games');
-$('gamebody').onclick=e=>{const b=e.target.closest('[data-do]');if(!b||b.disabled)return;const a=b.dataset.do;if(a==='truth'||a==='dare')act({type:'pick',kind:a});else if(a==='complete')act({type:'complete',value:$('response')?.value||''});else if(a==='answer'){const v=$('response')?.value.trim();if(!v)return toast('Write an answer first.');act({type:'answer',value:v})}else if(a==='option')act({type:'answer',value:Number(b.dataset.value)});else if(a==='flip')act({type:'flip',index:Number(b.dataset.index)});else if(['approve','retry','skip','next','replay'].includes(a))act({type:a})};
+$('gamecards').onclick=e=>{const b=e.target.closest('[data-game]');if(b)startSelectedGame(b.dataset.game)};$('featured').onclick=()=>act({type:'start',game:'truth'});$('back').onclick=()=>modal('Return to games?','This resets the current game for both players. Your call and chat remain connected.',()=>act({type:'lobby'}),'Back to games');
+$('gamebody').onclick=e=>{
+ const promo=e.target.closest('[data-promote]');
+ if(promo&&chessPromotion){const p=chessPromotion;chessPromotion=null;chessSelection=null;act({type:'chess-move',from:p.from,to:p.to,promotion:promo.dataset.promote});return}
+ const chessAction=e.target.closest('[data-chess-action]');
+ if(chessAction&&S.game==='chess'){
+  const type=chessAction.dataset.chessAction;
+  if(type==='flip'){chessFlip=!chessFlip;chessSelection=null;renderGame();return}
+  if(type==='pgn'){chessClipboard();return}
+  if(type==='cancel-promotion'){chessPromotion=null;renderGame();return}
+  if(type==='chess-resign'){modal('Resign this chess match?','You will lose the game by resignation.',()=>act({type}),'Resign');return}
+  if(type==='chess-rematch'){act({type});return}
+  if(type==='chess-offer'){act({type,offer:chessAction.dataset.offer});return}
+  if(type==='chess-accept'||type==='chess-decline'){act({type});return}
+ }
+ const square=e.target.closest('[data-square]');
+ if(square&&S.game==='chess'){chessPickSquare(square.dataset.square);return}
+ const b=e.target.closest('[data-do]');if(!b||b.disabled)return;const a=b.dataset.do;if(a==='truth'||a==='dare')act({type:'pick',kind:a});else if(a==='complete')act({type:'complete',value:$('response')?.value||''});else if(a==='answer'){const v=$('response')?.value.trim();if(!v)return toast('Write an answer first.');act({type:'answer',value:v})}else if(a==='option')act({type:'answer',value:Number(b.dataset.value)});else if(a==='flip')act({type:'flip',index:Number(b.dataset.index)});else if(['approve','retry','skip','next','replay'].includes(a))act({type:a})};
+$('gamebody').addEventListener('change',e=>{
+ if(e.target.id==='chess-time'&&S.game==='chess'&&online()){
+  chessSelection=null;act({type:'chess-config',mode:e.target.value});
+ }
+});
+$('gamebody').addEventListener('dragstart',e=>{
+ const sq=e.target.closest('[data-square]');if(!sq||S.game!=='chess'||!ChessCtor||!online()||S.chess.turn!==(host?0:1)){e.preventDefault();return}
+ const g=new ChessCtor(S.chess.fen),p=g.get(sq.dataset.square);
+ if(!p||p.color!==((host?0:1)===S.chess.white?'w':'b')){e.preventDefault();return}
+ e.dataTransfer.setData('text/plain',sq.dataset.square);e.dataTransfer.effectAllowed='move';
+});
+$('gamebody').addEventListener('dragover',e=>{if(e.target.closest('[data-square]')&&S.game==='chess')e.preventDefault()});
+$('gamebody').addEventListener('drop',e=>{
+ const sq=e.target.closest('[data-square]');if(!sq||S.game!=='chess')return;
+ e.preventDefault();const from=e.dataTransfer.getData('text/plain');chessAttempt(from,sq.dataset.square);
+});
 $('chatopen').onclick=()=>chatOpen($('chatpanel').hidden);$('chatclose').onclick=()=>chatOpen(false);$('chatbackdrop').onclick=()=>chatOpen(false);$('guideShare').onclick=copyInvite;$('chatform').onsubmit=postMessage;$('chatinput').oninput=()=>{if(online()&&stamp()-lastTyping>1200){lastTyping=stamp();send({type:'typing'})}};
 $('call').onclick=startVoice;$('hangup').onclick=()=>stopVoice(true);$('acceptcall').onclick=acceptVoice;$('declinecall').onclick=()=>{send({type:'voice-decline',id:voiceId});stopVoice(false)};$('mic').onclick=()=>{if(!stream||!stream.getAudioTracks().some(t=>t.readyState==='live'))return;micMuted=!micMuted;stream.getAudioTracks().filter(t=>t.readyState==='live').forEach(t=>t.enabled=!micMuted);send({type:'voice-mute',id:voiceId,value:micMuted});refreshVoice()};$('speaker').onclick=async()=>{if(voice!=='connected')return;if(playbackBlocked){try{await audio.play();playbackBlocked=false}catch{toast('Audio playback blocked in browser.')}}else{soundMuted=!soundMuted;audio.muted=soundMuted}refreshVoice()};
 $('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(!host&&!conn?.open){connecting=false;join()}}presence()}});
 window.addEventListener('pagehide',e=>{stopVoice(true);if(!e.persisted)peer?.destroy()});
 window.addEventListener('pageshow',e=>{if(e.persisted&&active){if(peer?.disconnected&&!peer.destroyed){try{peer.reconnect()}catch{}}if(!host&&!conn?.open){connecting=false;join()}send({type:'sync'});presence()}});window.addEventListener('beforeunload',e=>{if(host&&active&&connected){e.preventDefault();e.returnValue=''}});
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden});presence();if(!host&&!conn?.open&&!connecting&&joinCount<5&&!blocked)join()}},4000);refreshVoice();
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden});presence();if(!host&&!conn?.open&&!connecting&&joinCount<5&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);refreshVoice();
