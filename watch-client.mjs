@@ -143,7 +143,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
  function startReaction(emoji){
   if(!online()||!REACTIONS.includes(emoji)||Date.now()-reactionTime<320)return;
   reactionTime=Date.now();reaction(emoji);
-  send({type:'watch-reaction',emoji,epoch:state().epoch});
+  send({type:'watch-reaction',emoji,epoch:state().epoch,origin:seat()});
  }
  function init(){
   $('watchLaunch').onclick=()=>{if(!online()){toast('Connect with your partner first.');return}act({type:'watch',kind:'open'})};
