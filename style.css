@@ -119,3 +119,19 @@
     padding-bottom:calc(46px + env(safe-area-inset-bottom,0px));
   }
 }
+
+
+/* Helpful, crawlable landing-page content. Native details support keyboards. */
+.seo-info{max-width:900px;margin:42px auto 84px;padding:0 15px}
+.seo-info h2{font-size:clamp(28px,3.7vw,42px);letter-spacing:-1.3px;line-height:1.2;margin:14px 0 18px}
+.seo-info h3{font-size:22px;font-weight:600;margin:35px 0 16px}
+.seo-info p{font-size:14px;line-height:1.85;color:#d0bdd8;max-width:780px}
+.seo-intro{padding:26px 30px;border:1px solid #ffffff1a;border-radius:20px;background:linear-gradient(160deg,#34223d75,#1c162c85)}
+.seo-intro p+p{margin-top:18px}
+.faq-items{display:grid;gap:10px}
+.faq-items details{border:1px solid #ffffff20;border-radius:12px;background:#261c34b8;overflow:hidden}
+.faq-items summary{cursor:pointer;list-style-position:inside;font-size:14px;font-weight:600;color:#f2dfef;padding:16px 20px}
+.faq-items summary:focus-visible{outline:2px solid #ffaccd;outline-offset:-3px}
+.faq-items details[open] summary{border-bottom:1px solid #ffffff18}
+.faq-items details p{padding:0 20px 18px;margin:15px 0 0}
+@media(max-width:580px){.seo-info{margin:30px auto 65px;padding:0}.seo-intro{padding:20px;border-radius:15px}.seo-info h2{font-size:28px}.seo-info h3{font-size:19px}.seo-info p{font-size:13px;line-height:1.75}.faq-items summary{padding:15px;font-size:13px}.faq-items details p{padding:0 15px 15px}}
