@@ -128,3 +128,67 @@ test('invalid invite stays on entry screen instead of creating a room',async({pa
  await expect(page.locator('#room')).toBeHidden();
  await expect(page.locator('#entryerror')).toContainText('invalid');
 });
+
+
+test('five new games remain synchronized across two browser players',async({context})=>{
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
+ const h=await context.newPage(),g=await context.newPage();
+ await h.goto('/');await h.locator('#nickname').fill('Alex');await h.locator('#create').click();
+ const code=(await h.locator('#roomcode').textContent()).replace(/\s/g,'');
+ await g.goto('/#room='+code);
+ await expect(g.locator('#theirname')).toHaveText('Alex',{timeout:12000});
+ // XOXO: each turn validated, result shared, then both return to library.
+ await h.locator('[data-game=xoxo]').click();
+ await expect(g.locator('.xoxo-grid .xoxo-cell')).toHaveCount(9);
+ for(const [page,i] of [[h,0],[g,3],[h,1],[g,4],[h,2]])await page.locator('[data-xoxo="'+i+'"]').click();
+ await expect(h.locator('.xoxo-grid')).toBeVisible();
+ await expect(g.locator('.xoxo-grid')).toBeVisible();
+ await expect(g.locator('.couple-surface')).toContainText('partner won');
+ await h.locator('#back').click();await h.getByRole('dialog').getByRole('button',{name:'Back to games'}).click();
+ await expect(g.locator('#lobby')).toBeVisible();
+ // Bottle: spinner and approval synchronize.
+ await h.locator('[data-game=bottle]').click();
+ await expect(g.locator('.bottle-stage')).toBeVisible();
+ await h.locator('[data-couple-action=spin][data-mood=cute]').click();
+ await expect(g.locator('.bottle-task')).toBeVisible();
+ await h.locator('[data-couple-action=done]').click();
+ await expect(g.locator('[data-couple-action=approve]')).toBeVisible();
+ await g.locator('[data-couple-action=approve]').click();
+ await expect(g.locator('[data-couple-action=spin][data-mood=romantic]')).toBeVisible();
+ await h.locator('#back').click();await h.getByRole('dialog').getByRole('button',{name:'Back to games'}).click();
+ // Pictionary: prompt is hidden from guesser and committed drawing syncs.
+ await h.locator('[data-game=pictionary]').click();
+ await expect(g.locator('#loveCanvas')).toBeVisible();
+ await expect(h.locator('.secret-prompt')).toBeVisible();
+ await expect(g.locator('.secret-prompt')).toHaveCount(0);
+ await h.locator('#loveCanvas').click({position:{x:45,y:45}});
+ await expect(g.locator('#loveCanvas polyline')).toHaveCount(1);
+ await g.locator('#guessInput').fill('butterfly');
+ await g.locator('[data-couple-action=guess]').click();
+ await expect(h.locator('.guess-log')).toContainText('butterfly');
+ await h.locator('#back').click();await h.getByRole('dialog').getByRole('button',{name:'Back to games'}).click();
+ // Escape: two players see different clue cards, either can submit.
+ await h.locator('[data-game=escape]').click();
+ await expect(g.locator('.private-clue')).toBeVisible();
+ const c1=await h.locator('.private-clue p').textContent();
+ const c2=await g.locator('.private-clue p').textContent();
+ expect(c1).not.toEqual(c2);
+ await g.locator('#escapeAnswer').fill('2147');
+ await g.locator('[data-couple-action=guess]').click();
+ await expect(h.locator('.co-op-win')).toBeVisible();
+ await h.locator('[data-couple-action=ready]').click();
+ await g.locator('[data-couple-action=ready]').click();
+ await expect(h.locator('.escape-scene')).toContainText('Moonlight Balcony');
+ await h.locator('#back').click();await h.getByRole('dialog').getByRole('button',{name:'Back to games'}).click();
+ // Date: hidden choices reveal only when both decide.
+ await h.locator('[data-game=date]').click();
+ await h.locator('[data-date="0"]').click();
+ await expect(g.locator('.date-reveal')).toHaveCount(0);
+ await g.locator('[data-date="1"]').click();
+ await expect(h.locator('.date-reveal')).toContainText('Seaside sunset');
+ await expect(g.locator('.date-reveal')).toContainText('Mountain hideaway');
+ await h.locator('[data-couple-action=ready]').click();
+ await g.locator('[data-couple-action=ready]').click();
+ await expect(h.locator('.couple-surface')).toContainText('What are we eating?');
+ await h.close();await g.close();
+});
