@@ -135,3 +135,9 @@
 .faq-items details[open] summary{border-bottom:1px solid #ffffff18}
 .faq-items details p{padding:0 20px 18px;margin:15px 0 0}
 @media(max-width:580px){.seo-info{margin:30px auto 65px;padding:0}.seo-intro{padding:20px;border-radius:15px}.seo-info h2{font-size:28px}.seo-info h3{font-size:19px}.seo-info p{font-size:13px;line-height:1.75}.faq-items summary{padding:15px;font-size:13px}.faq-items details p{padding:0 15px 15px}}
+
+/* Legal notice and creator credit: discoverable, readable and keyboard-accessible. */
+.welcome-privacy{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;padding:6px 15px 16px;color:#bba4c3;font-size:11px}
+.welcome-privacy a,.roomfooter a{color:#ffbad8;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.welcome-privacy a:focus-visible,.roomfooter a:focus-visible{outline:2px solid #ffbad8;outline-offset:5px}
+@media(max-width:580px){.welcome-privacy{font-size:10px;gap:8px}.roomfooter{align-items:center;flex-wrap:wrap;justify-content:center;gap:14px;text-align:center}}
