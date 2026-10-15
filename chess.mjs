@@ -104,7 +104,7 @@ export function reduceChess(input,action,seat,Chess,now=Date.now()){
  const clockBefore=before[seat];
  if(s.mode!=='classic')before[seat]+=s.increment;
  s.clocks=before;
- s.moves.push({from:move.from,to:move.to,san:move.san,piece:move.piece,color:move.color,flags:move.flags,seat,clockBefore});
+ s.moves.push({from:move.from,to:move.to,san:move.san,piece:move.piece,color:move.color,captured:move.captured||null,flags:move.flags,seat,clockBefore});
  s.fen=g.fen();s.lastMove={from:move.from,to:move.to};s.turn=1-seat;s.lastAt=now;
  s.check=g.isCheck();s.offer=null;
  const status=moveStatus(g);s.status=status.status;s.result=status.result;
