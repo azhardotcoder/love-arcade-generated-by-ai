@@ -616,7 +616,28 @@ if(g==='chess'){
 }
 if(g==='match'){h+='<h2>'+ (S.phase==='win'?'All hearts found. Together.':'Find all six perfect pairs.')+'</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span></div><p class="subtitle">'+S.moves+' attempts · '+S.found.length/2+' pairs matched</p>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';h+='<div class="memorygrid">'+S.board.map((x,i)=>'<button class="memorycard '+(S.found.includes(i)?'found revealed':S.open.includes(i)?'revealed':'')+'" data-do="flip" data-index="'+i+'" '+(!mine||S.open.length===2||S.open.includes(i)||S.found.includes(i)?'disabled':'')+' aria-label="Card '+(i+1)+'">'+(S.found.includes(i)||S.open.includes(i)?x:'♡')+'</button>').join('')+'</div>';if(S.phase==='win')h+=S.ready[seat]?'<div class="waiting">Waiting for partner to replay…</div>':button('replay','Play another round')}
 $('gamebody').innerHTML=h+'</fieldset></div>';updateExperience();const el=$('response');if(el)el.addEventListener('input',()=>drafts[el.dataset.key]=el.value)}
-function drawChat(){const log=$('chatlog');log.innerHTML=messages.length?messages.map(m=>m.who<0?'<div class="systemmsg">'+esc(m.text)+'</div>':'<div class="bubble '+(m.who===(host?0:1)?'mine':'')+'">'+esc(m.text)+'<small>'+(m.who===(host?0:1)?'You':esc(partner))+' · '+new Date(m.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+(m.who===(host?0:1)?' · '+(m.delivered?'Delivered':'Sent'):'')+'</small></div>').join(''):'<div class="chatempty">♡<p>A little hello goes a long way.<br>Your conversation starts here.</p></div>';log.scrollTop=log.scrollHeight;$('unread').hidden=unread===0;$('unread').textContent=unread;$('homeUnread').hidden=unread===0;$('homeUnread').textContent=unread;$('dockTrayUnread').hidden=unread===0;$('dockTrayUnread').textContent=unread>9?'9+':String(unread)}
+function drawChat(){
+ const log=$('chatlog');
+ const nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<90;
+ const mine=host?0:1;
+ let previousDay='';
+ log.innerHTML=messages.length?messages.map(m=>{
+  if(m.who<0)return '<div class="systemmsg">'+esc(m.text)+'</div>';
+  const own=m.who===mine;
+  const date=new Date(m.time);
+  const day=date.toDateString();
+  const separator=day!==previousDay?'<div class="chat-date"><span>'+esc(date.toLocaleDateString([],{month:'short',day:'numeric'}))+'</span></div>':'';
+  previousDay=day;
+  const time=date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  return separator+'<div class="chat-message '+(own?'is-mine':'is-theirs')+'"><div class="bubble '+(own?'mine':'')+'">'+esc(m.text)+'</div><small class="chat-meta">'+esc(time)+(own?' <span aria-label="'+(m.delivered?'Delivered':'Sending')+'">'+(m.delivered?'✓✓':'✓')+'</span>':'')+'</small></div>';
+ }).join(''):'<div class="chatempty"><div class="chatempty-heart" aria-hidden="true">♡</div><strong>Every love story starts with hello.</strong><p>Send your person a little something sweet ✨</p></div>';
+ if(nearBottom||!$('chatpanel').hidden)log.scrollTop=log.scrollHeight;
+ $('unread').hidden=unread===0;$('unread').textContent=unread;
+ $('homeUnread').hidden=unread===0;$('homeUnread').textContent=unread;
+ $('dockTrayUnread').hidden=unread===0;$('dockTrayUnread').textContent=unread>9?'9+':String(unread);
+ const presence=$('chatPresence');
+ if(presence){presence.classList.toggle('is-connected',online());presence.lastChild.textContent=' '+(online()?partner+' is here with you':'Waiting for your person');}
+}
 function chatOpen(show){
  if(show)chatReturnTarget=document.activeElement;
  $('chatpanel').hidden=!show;$('chatbackdrop').hidden=!show;
@@ -791,7 +812,7 @@ $('homeChat').onclick=()=>chatOpen(true);
 $('privateCopy').onclick=()=>{ $('privateMenu').open=false;copyInvite() };
 $('privateExit').onclick=()=>{ $('privateMenu').open=false;$('leave').click() };
 $('dockToggle').onclick=()=>setDockExpanded(!dockExpanded);
-$('chatopen').onclick=()=>chatOpen($('chatpanel').hidden);$('chatclose').onclick=()=>chatOpen(false);$('chatbackdrop').onclick=()=>chatOpen(false);$('guideShare').onclick=copyInvite;$('chatform').onsubmit=postMessage;$('chatinput').oninput=()=>{if(online()&&stamp()-lastTyping>1200){lastTyping=stamp();send({type:'typing'})}};
+$('chatopen').onclick=()=>chatOpen($('chatpanel').hidden);$('chatclose').onclick=()=>chatOpen(false);$('chatbackdrop').onclick=()=>chatOpen(false);$('guideShare').onclick=copyInvite;$('chatform').onsubmit=postMessage;document.querySelectorAll('[data-quick-message]').forEach(button=>button.addEventListener('click',()=>{if(!online())return toast('Wait for your partner to reconnect.');const input=$('chatinput');input.value=button.dataset.quickMessage;postMessage({preventDefault(){}});input.focus()}));$('chatinput').oninput=()=>{if(online()&&stamp()-lastTyping>1200){lastTyping=stamp();send({type:'typing'})}};
 $('call').onclick=startVoice;$('hangup').onclick=()=>stopVoice(true);$('acceptcall').onclick=acceptVoice;$('declinecall').onclick=()=>{send({type:'voice-decline',id:voiceId});stopVoice(false)};$('mic').onclick=()=>{if(!stream||!stream.getAudioTracks().some(t=>t.readyState==='live'))return;micMuted=!micMuted;stream.getAudioTracks().filter(t=>t.readyState==='live').forEach(t=>t.enabled=!micMuted);send({type:'voice-mute',id:voiceId,value:micMuted});refreshVoice()};$('speaker').onclick=async()=>{if(voice!=='connected')return;if(playbackBlocked){try{await audio.play();playbackBlocked=false}catch{toast('Audio playback blocked in browser.')}}else{soundMuted=!soundMuted;audio.muted=soundMuted}refreshVoice()};
 $('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(cloudMode){if(active&&!cloud?.isReady())cloud?.reconnectNow()}else if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(cloudMode){if(!cloud?.isReady())cloud?.reconnectNow()}else if(!host&&!conn?.open){connecting=false;join()}}presence()}});
 window.addEventListener('pagehide',e=>{stopVoice(true);if(cloudMode)cloud?.stop();if(!e.persisted)peer?.destroy()});
