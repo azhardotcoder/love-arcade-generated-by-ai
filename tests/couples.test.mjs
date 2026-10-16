@@ -6,7 +6,7 @@ const go=(s,seat,action,other={},now=1000)=>reduceCouple(s,{type:'couple',action
 test('five additional modes are listed with content',()=>{
  assert.deepEqual(PACK_IDS,['pictionary','xoxo','bottle','escape','date']);
  assert.ok(PROMPTS.length>=15&&ESCAPE.length>=4&&DATE_STAGES.length>=5);
- assert.equal(Object.keys(GAMES).length,11);
+ assert.equal(Object.keys(GAMES).length,13);
 });
 test('Pictionary prompt private, one designated drawer and correct guesses scored',()=>{
  let s=newCoupleGame('pictionary');
