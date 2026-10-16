@@ -4,8 +4,8 @@ import {GAMES,TRUTHS,DARES,QUESTIONS,RATHER,SYMBOLS,fresh,reduce,viewForSeat} fr
 
 const doIt=(s,actor,type,other={})=>reduce(s,{type,epoch:s.epoch,round:s.round,...other},actor);
 function begin(game){const s=doIt(fresh(),0,'start',{game});assert.ok(s);return s}
-test('catalogue: exactly eleven games and nonempty content pools',()=>{
- assert.deepEqual(Object.keys(GAMES).sort(),['bottle','chess','date','escape','match','notes','pictionary','quiz','rather','truth','xoxo']);
+test('catalogue: exactly thirteen games and nonempty content pools',()=>{
+ assert.deepEqual(Object.keys(GAMES).sort(),['bottle','chess','date','escape','heartsync','match','notes','pictionary','quiz','rather','stars','truth','xoxo']);
  assert.ok(TRUTHS.length>=10&&DARES.length>=10&&QUESTIONS.length>=5&&RATHER.length>=5);
  assert.equal(SYMBOLS.length,6);
 });
