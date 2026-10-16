@@ -13,6 +13,7 @@ const stamp=()=>Date.now();
 const session=(()=>{try{let s=sessionStorage.getItem('love-arcade-session');if(!s){s=uid();sessionStorage.setItem('love-arcade-session',s)}return s}catch{return uid()}})();
 let peer=null,conn=null,host=false,active=false,connected=false,room='',name='',partner='Your partner',guestSession='',lastSeen=0,presenceAway=false,joinCount=0,connecting=false,blocked=false,signalReady=false,S=fresh();
 let lastCelebrateEpoch='',lastExperienceSignature='',messages=[],messageIds=new Set(),unread=0,drafts={},hideTimer=null,retryTimer=null,connectionTimer=null,pingTimer=null,toastTimer=null,chatTypingTimer=null,lastTyping=0,closed=false;
+let localView='home',lastSharedContext='',dockExpanded=false,chatReturnTarget=null;
 let call=null,stream=null,voice='off',voiceId='',voiceToken=0,micMuted=false,soundMuted=false,partnerMicMuted=false,playbackBlocked=false,callStarted=0,callTimeout=null,voiceClock=null;
 const audio=$('remoteaudio');
 let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1,hostClockOffset=0,lastRemoteReaction=0;
@@ -127,7 +128,7 @@ function busy(v){$('create').disabled=v;$('join').disabled=v;$('create').textCon
 function codegen(){return String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0')}
 function extractCode(value){try{if(value.includes('://')){const u=new URL(value);value=new URLSearchParams(u.hash.slice(1)).get('room')||u.searchParams.get('room')||''}}catch{}return value.trim().replace(/[\s-]/g,'').toUpperCase()}
 function create(isHost){if(active)return;if(!window.Peer){$('entryerror').textContent='The connection library has not loaded. Check your connection and refresh.';return}name=$('nickname').value.trim().slice(0,24)||'Sweetheart';try{localStorage.setItem('la-name',name)}catch{}room=isHost?codegen():extractCode($('roominput').value);if(!/^\d{6}$/.test(room)){$('entryerror').textContent='Enter a 6-digit room code or paste the latest invite link.';return}
-host=isHost;active=true;connected=false;connecting=false;blocked=false;closed=false;partner='Your partner';guestSession='';joinCount=0;S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;signalReady=false;busy(true);$('entryerror').textContent='';
+host=isHost;active=true;localView='home';lastSharedContext='';dockExpanded=false;connected=false;connecting=false;blocked=false;closed=false;partner='Your partner';guestSession='';joinCount=0;S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;signalReady=false;busy(true);$('entryerror').textContent='';
 const p=new Peer(host?'love-arcade-v2-'+room:undefined,{debug:0});peer=p;
 connectionTimer=setTimeout(()=>{if(peer===p&&!p.open){leave(false);$('entryerror').textContent='Could not reach the multiplayer service. Please try again.'}},19000);
 p.on('open',()=>{if(!active||peer!==p)return;clearTimeout(connectionTimer);signalReady=true;busy(false);$('welcome').hidden=true;$('room').hidden=false;$('dock').hidden=false;render();if(!host)join()});
@@ -181,21 +182,45 @@ function act(a){if(!online()){toast('Wait until your partner is connected.');ret
  * One connected peer session, three visually distinct screens.
  * Avoid full navigation/reloads: that would terminate the WebRTC room.
  */
+function setDockExpanded(expanded){
+ dockExpanded=Boolean(expanded);
+ const el=$('dock');el.dataset.collapsed=String(!dockExpanded);
+ $('dockToggle').setAttribute('aria-expanded',String(dockExpanded));
+ $('dockToggle').setAttribute('aria-label',dockExpanded?'Hide voice and chat controls':'Show voice and chat controls');
+ $('dockToggle').title=dockExpanded?'Hide controls':'Show controls';
+ $('dockArrow').textContent=dockExpanded?'›':'‹';
+}
 function syncJourney(){
  if(!active)return;
  const watching=Boolean(S.watch?.open);
  const playing=Boolean(S.game);
  const ready=online();
- const next=(watching||playing)?'activity':ready?'lounge':'waiting';
+ // The host shares active activities; browsing the library is a local preference.
+ if((playing||watching)&&!lastSharedContext)lastSharedContext=watching?'watch':'game';
+ if(!playing&&!watching&&lastSharedContext){
+  localView=lastSharedContext==='game'?'games':'home';
+  lastSharedContext='';
+ }
+ const next=(watching||playing)?'activity':ready?(localView==='games'?'games':'home'):'waiting';
  const el=$('room'),changed=el.dataset.stage!==next;
  el.dataset.stage=next;
  $('waitingRoom').hidden=next!=='waiting';
+ $('privateHeader').hidden=next==='waiting';
+ $('privateHome').hidden=next!=='home';
+ $('lobby').hidden=next!=='games';
  $('activityHeading').hidden=next!=='activity'||watching;
- $('journeyStep').textContent=next==='waiting'?'PRIVATE WAITING ROOM':next==='lounge'?'THE DATE-NIGHT LOUNGE':'YOUR PRIVATE ACTIVITY';
+ $('journeyStep').textContent=next==='waiting'?'PRIVATE WAITING ROOM':next==='home'?'OUR PRIVATE ROOM':next==='games'?'GAME COLLECTION':'YOUR PRIVATE ACTIVITY';
  $('journeyLive').classList.toggle('is-connected',ready);
  $('journeyLive').lastChild.textContent=ready?' Together':host?' Waiting':' Connecting';
  $('journeyInvite').hidden=!host&&next==='waiting';
  $('waitingCode').textContent=room||'—';
+ $('privateCode').textContent=room||'—';
+ const label=$('privatePresence');
+ label.classList.toggle('is-online',ready);
+ label.classList.toggle('is-offline',!ready);
+ $('privatePresenceText').textContent=ready?(presenceAway?'Online · Away':'Together'):'Reconnecting';
+ $('homePair').textContent=partner&&partner!=='Your partner'?name+' & '+partner:name+' & your person';
+ $('homeChatName').textContent=partner&&partner!=='Your partner'?partner:'your person';
  const guestWaiting=!host&&next==='waiting';
  $('waitingTitle').innerHTML=guestWaiting?'Finding <em>your person.</em>':'Good things are <em>better together.</em>';
  $('waitingDescription').textContent=guestWaiting?'We’re connecting you to your private room. Keep this page open for a moment.':'Your room is ready. Invite your favorite person and we’ll bring you into your private game lounge as soon as they join.';
@@ -203,10 +228,21 @@ function syncJourney(){
  $('waitingCodeGroup').hidden=guestWaiting;
  $('waitingShare').hidden=guestWaiting;
  if(next==='activity'&&!watching)$('activityTitle').textContent=GAMES[S.game]?.title||'Your moment';
- if(next==='waiting')$('dock').hidden=true;
- else $('dock').hidden=false;
+ $('dock').hidden=next==='waiting';
+ setDockExpanded(dockExpanded);
  if(changed){lastExperienceSignature='';window.scrollTo({top:0,behavior:'instant'})}
 }
+function showGameCollection(){
+ if(!active||!online()||S.game||S.watch?.open)return;
+ localView='games';
+ syncJourney();
+}
+function showPrivateHome(){
+ if(!active||!online()||S.game||S.watch?.open)return;
+ localView='home';
+ syncJourney();
+}
+
 async function shareRoom(){
  const link=location.origin+location.pathname+'#room='+room;
  if(navigator.share){
@@ -221,7 +257,7 @@ function presence(){if(!active)return;syncJourney();const is=online();$('myname'
  myStatus.textContent=myOnline?(document.hidden?'● Online · Away':'● Online'):'● Offline';
  const partnerState=is?'is-online':(connected||guestSession?'is-offline':'is-waiting');
  theirStatus.className='presence-label '+partnerState;
- theirStatus.textContent=is?(presenceAway?'● Online · Away':'● Online'):(connected||guestSession?'● Offline':'○ Waiting');$('hearts').textContent=S.hearts;$('roomcode').textContent=room;$('connectionbanner').replaceChildren();let msg=!navigator.onLine?'You are offline. Games and chat are paused.':closed?'Host ended the room. Leave to start again.':!is?(host?'Waiting for your partner, or for them to reconnect.':'Partner offline or room unavailable.'):presenceAway?'Your partner switched tabs. Play resumes when they return.':'';if(msg){const t=document.createElement('span');t.textContent=msg;$('connectionbanner').append(t);if(!is&&!host&&!closed){const b=document.createElement('button');b.className='textbutton';b.textContent='Reconnect';b.onclick=()=>{joinCount=0;connecting=false;join()};$('connectionbanner').append(b)}}$('chatsend').disabled=!is;$('chatinput').disabled=!is;$('featured').disabled=!is;$('watchLaunch').disabled=!is;document.querySelectorAll('#gamecards button').forEach(b=>b.disabled=!is);const field=$('gamefield');if(field)field.disabled=!is;refreshVoice();updateExperience()}
+ theirStatus.textContent=is?(presenceAway?'● Online · Away':'● Online'):(connected||guestSession?'● Offline':'○ Waiting');$('hearts').textContent=S.hearts;$('roomcode').textContent=room;$('connectionbanner').replaceChildren();let msg=!navigator.onLine?'You are offline. Games and chat are paused.':closed?'Host ended the room. Leave to start again.':!is?(host?'Waiting for your partner, or for them to reconnect.':'Partner offline or room unavailable.'):'';if(msg){const t=document.createElement('span');t.textContent=msg;$('connectionbanner').append(t);if(!is&&!host&&!closed){const b=document.createElement('button');b.className='textbutton';b.textContent='Reconnect';b.onclick=()=>{joinCount=0;connecting=false;join()};$('connectionbanner').append(b)}}$('chatsend').disabled=!is;$('chatinput').disabled=!is;$('featured').disabled=!is;$('watchLaunch').disabled=!is;document.querySelectorAll('#gamecards button').forEach(b=>b.disabled=!is);const field=$('gamefield');if(field)field.disabled=!is;refreshVoice();updateExperience()}
 function updateExperience(){
  if(!active)return;
  const ready=online();
@@ -268,7 +304,7 @@ function celebrate(){
 }
 function render(){ $('gamecards').innerHTML=Object.entries(GAMES).map(([id,g],i)=>'<button class="gamecard '+g.theme+'" data-game="'+id+'"><span class="tagline">0'+(i+1)+' / '+g.label+'</span><span class="arrow">↗</span><span class="art">'+g.icon+'</span><h3>'+g.title+'</h3><p>'+g.desc+'</p></button>').join('');renderGame();drawChat();presence();updateExperience()}
 const button=(k,s,cl='primary',extra='')=>'<button class="'+cl+'" data-do="'+k+'" '+extra+'>'+s+'</button>';
-function renderGame(){const g=S.game;watchController.render();syncJourney();$('lobby').hidden=!!g||!!S.watch?.open;$('game').hidden=!g||!!S.watch?.open;if(!g){$('gamebody').replaceChildren();return}if(PACK_IDS.includes(g)){displayCouple();return}if(g==='chess'&&!ChessCtor){$('gamebody').innerHTML='<div class="waiting">Loading professional chess engine…</div>';loadChess().catch(()=>{});return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
+function renderGame(){const g=S.game;watchController.render();syncJourney();$('lobby').hidden=$('room').dataset.stage!=='games';$('game').hidden=!g||!!S.watch?.open;if(!g){$('gamebody').replaceChildren();return}if(PACK_IDS.includes(g)){displayCouple();return}if(g==='chess'&&!ChessCtor){$('gamebody').innerHTML='<div class="waiting">Loading professional chess engine…</div>';loadChess().catch(()=>{});return}const mine=S.turn===(host?0:1),seat=host?0:1;const old=$('response');if(old)drafts[old.dataset.key]=old.value;const key=S.epoch+'-'+S.round+'-'+S.phase;const ta=(label,max)=>'<label for="response">'+label+'</label><textarea id="response" data-key="'+key+'" maxlength="'+max+'" placeholder="Write something sweet...">'+esc(drafts[key]||'')+'</textarea>';let h='<div class="game-surface"><span class="eyebrow pink">'+GAMES[g].label+'</span><fieldset id="gamefield" '+(online()?'':'disabled')+'>';const who=mine?'Your turn':esc(partner)+"'s turn";$('roundlabel').textContent=g==='match'?'PAIRS '+S.found.length/2+' / 6':'ROUND '+String(S.round).padStart(2,'0');
 if(g==='truth'){h+='<h2>Truth or Dare</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span><span class="fineprint">Approval required before switching turns</span></div><div class="steps"><span class="'+(S.phase==='choose'?'active':'')+'">01 CHOOSE</span><span class="'+(S.phase==='task'?'active':'')+'">02 COMPLETE</span><span class="'+(S.phase==='approval'?'active':'')+'">03 APPROVE</span></div>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';if(S.phase==='choose')h+=mine?'<p class="subtitle">Be honest, be brave, be you.</p><div class="choices">'+button('truth','♡ Truth<small>Open up a little.</small>','choice')+button('dare','✧ Dare<small>Make a little magic.</small>','choice')+'</div>':'<div class="waiting">Your partner is choosing Truth or Dare…</div>';else{h+='<span class="eyebrow pink">'+esc(S.kind.toUpperCase())+'</span><h2>'+esc(S.task)+'</h2>';if(S.reply)h+='<div class="answerbox"><small>THE ANSWER</small><p>'+esc(S.reply)+'</p></div>';if(S.phase==='task')h+=mine?ta('Optional: type your answer or use voice/chat',500)+'<div class="gameactions">'+button('complete','✓ I completed it')+button('skip','Skip (no penalty)','secondary')+'</div>':'<div class="waiting">'+esc(partner)+' is completing the task…</div>';else h+=mine?'<div class="waiting">Waiting for partner approval before turns switch.</div><div class="gameactions">'+button('skip','Skip instead','secondary')+'</div>':'<p class="subtitle">Did they complete the challenge?</p><div class="gameactions">'+button('approve','✓ Approve & switch turns')+button('retry','Try again','secondary')+'</div>'}h+='<p class="fineprint">You can always skip. There is never a penalty.</p>'}
 if(['quiz','rather','notes'].includes(g)){const question=g==='quiz'?QUESTIONS[(S.round-1)%QUESTIONS.length]:g==='notes'?'Tell them something beautiful.':'What would you rather?';h+='<h2>'+esc(question)+'</h2><p class="subtitle">Both answers stay hidden until you each submit.</p>';if(S.phase==='reveal'){const options=g==='rather'?RATHER[(S.round-1)%RATHER.length]:null;h+='<p class="reveal-title">Two hearts, one reveal.</p>';for(const i of [seat,1-seat])h+='<div class="answerbox"><small>'+(i===seat?'YOU':esc(partner).toUpperCase())+'</small><p>'+esc(options?options[S.answers[i]]:S.answers[i])+'</p></div>';h+=S.ready[seat]?'<div class="waiting">Waiting for your partner to continue…</div>':button('next','Ready for next round')}else if(S.answers[seat]!==null)h+='<div class="waiting">Your answer is sealed. Waiting for your partner…</div>';else if(g==='rather')h+='<div class="choices">'+RATHER[(S.round-1)%RATHER.length].map((x,i)=>button('option',esc(x),'choice','data-value="'+i+'"')).join('')+'</div>';else h+=ta(g==='notes'?'Write your secret love note':'Share your answer',g==='notes'?1000:500)+button('answer',g==='notes'?'Seal my love note':'Lock my answer')}
 if(g==='chess'){
@@ -278,8 +314,19 @@ if(g==='chess'){
 }
 if(g==='match'){h+='<h2>'+ (S.phase==='win'?'All hearts found. Together.':'Find all six perfect pairs.')+'</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span></div><p class="subtitle">'+S.moves+' attempts · '+S.found.length/2+' pairs matched</p>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';h+='<div class="memorygrid">'+S.board.map((x,i)=>'<button class="memorycard '+(S.found.includes(i)?'found revealed':S.open.includes(i)?'revealed':'')+'" data-do="flip" data-index="'+i+'" '+(!mine||S.open.length===2||S.open.includes(i)||S.found.includes(i)?'disabled':'')+' aria-label="Card '+(i+1)+'">'+(S.found.includes(i)||S.open.includes(i)?x:'♡')+'</button>').join('')+'</div>';if(S.phase==='win')h+=S.ready[seat]?'<div class="waiting">Waiting for partner to replay…</div>':button('replay','Play another round')}
 $('gamebody').innerHTML=h+'</fieldset></div>';updateExperience();const el=$('response');if(el)el.addEventListener('input',()=>drafts[el.dataset.key]=el.value)}
-function drawChat(){const log=$('chatlog');log.innerHTML=messages.length?messages.map(m=>m.who<0?'<div class="systemmsg">'+esc(m.text)+'</div>':'<div class="bubble '+(m.who===(host?0:1)?'mine':'')+'">'+esc(m.text)+'<small>'+(m.who===(host?0:1)?'You':esc(partner))+' · '+new Date(m.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+(m.who===(host?0:1)?' · '+(m.delivered?'Delivered':'Sent'):'')+'</small></div>').join(''):'<div class="chatempty">♡<p>A little hello goes a long way.<br>Your conversation starts here.</p></div>';log.scrollTop=log.scrollHeight;$('unread').hidden=unread===0;$('unread').textContent=unread}
-function chatOpen(show){$('chatpanel').hidden=!show;$('chatbackdrop').hidden=!show;$('chatopen').setAttribute('aria-expanded',String(show));if(show){unread=0;drawChat();$('chatinput').focus()}else $('chatopen').focus()}
+function drawChat(){const log=$('chatlog');log.innerHTML=messages.length?messages.map(m=>m.who<0?'<div class="systemmsg">'+esc(m.text)+'</div>':'<div class="bubble '+(m.who===(host?0:1)?'mine':'')+'">'+esc(m.text)+'<small>'+(m.who===(host?0:1)?'You':esc(partner))+' · '+new Date(m.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+(m.who===(host?0:1)?' · '+(m.delivered?'Delivered':'Sent'):'')+'</small></div>').join(''):'<div class="chatempty">♡<p>A little hello goes a long way.<br>Your conversation starts here.</p></div>';log.scrollTop=log.scrollHeight;$('unread').hidden=unread===0;$('unread').textContent=unread;$('homeUnread').hidden=unread===0;$('homeUnread').textContent=unread}
+function chatOpen(show){
+ if(show)chatReturnTarget=document.activeElement;
+ $('chatpanel').hidden=!show;$('chatbackdrop').hidden=!show;
+ $('chatopen').setAttribute('aria-expanded',String(show));
+ $('homeChat').setAttribute('aria-expanded',String(show));
+ if(show){unread=0;drawChat();$('chatinput').focus()}
+ else{
+  const fallback=$('room').dataset.stage==='home'?$('homeChat'):$('dockToggle');
+  const target=chatReturnTarget?.isConnected&&chatReturnTarget.getClientRects().length?chatReturnTarget:fallback;
+  target.focus();chatReturnTarget=null;
+ }
+}
 function postMessage(e){e.preventDefault();if(!online())return toast('Wait for your partner to reconnect.');
  const text=$('chatinput').value.trim().slice(0,500);if(!text)return;const id=uid();
  if(send({type:'message',id,text})){messages.push({id,who:host?0:1,text,time:stamp(),delivered:false});messageIds.add(id);trimMessages();$('chatinput').value='';drawChat()}
@@ -290,7 +337,7 @@ function resendPendingMessages(){
  send({type:'message',id:m.id,text:m.text});
 }
 async function copyInvite(){const link=location.origin+location.pathname+'#room='+room;try{await navigator.clipboard.writeText(link);toast('Invite copied. Send it to your partner!')}catch{modal('Copy this invite',link)}}
-function leave(sendNotice=true){if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';$('welcome').hidden=false;$('room').hidden=true;$('room').dataset.stage='waiting';$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
+function leave(sendNotice=true){if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';localView='home';lastSharedContext='';dockExpanded=false;setDockExpanded(false);$('privateMenu').open=false;$('welcome').hidden=false;$('room').hidden=true;$('room').dataset.stage='waiting';$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
 function refreshVoice(){const states={off:'Voice is off',request:'Requesting microphone…',outgoing:'Ringing your partner…',incoming:'Incoming voice call',connecting:'Connecting voice…',connected:micMuted?'Your mic is muted':'Voice connected'};$('voicestate').textContent=states[voice];$('voicedot').className='voice-dot'+(voice==='connected'?' live':'');$('voicedetail').textContent=voice==='connected'?partnerMicMuted?'Partner mic muted':playbackBlocked?'Tap Sound to enable playback':'Live, private audio':voice==='off'?'Stay close, even from afar':'Microphone consent required';$('callbanner').hidden=voice!=='incoming';$('callinvite').textContent=partner+' wants to talk 💗';$('call').disabled=!online()||voice!=='off';$('hangup').disabled=voice==='off';$('mic').disabled=!(stream&&stream.getAudioTracks().some(track=>track.readyState==='live'));$('speaker').disabled=voice!=='connected';$('mic').setAttribute('aria-pressed',String(micMuted));$('speaker').setAttribute('aria-pressed',String(soundMuted));$('mic').innerHTML=svg(micMuted?'micoff':'mic')+'<span>'+(micMuted?'Unmute':'Mute')+'</span>';$('speaker').innerHTML=svg(soundMuted?'voloff':'volume')+'<span>'+(soundMuted?'Unmute':'Sound')+'</span>'}
 function stopVoice(notify=true){if(notify&&voiceId)send({type:'voice-end',id:voiceId});voiceToken++;clearTimeout(callTimeout);const c=call;call=null;const s=stream;stream=null;s?.getTracks().forEach(t=>{t.onended=null;t.stop()});audio.pause();audio.srcObject=null;c?.close();voice='off';voiceId='';micMuted=false;soundMuted=false;partnerMicMuted=false;playbackBlocked=false;refreshVoice()}
 async function microphone(){if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('Microphone requires HTTPS and a supported browser');return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false})}
@@ -397,6 +444,13 @@ $('gamebody').addEventListener('drop',e=>{
  const sq=e.target.closest('[data-square]');if(!sq||S.game!=='chess')return;
  e.preventDefault();const from=e.dataTransfer.getData('text/plain');chessAttempt(from,sq.dataset.square);
 });
+$('homeGames').onclick=showGameCollection;
+$('libraryBack').onclick=showPrivateHome;
+$('homeWatch').onclick=()=>$('watchLaunch').click();
+$('homeChat').onclick=()=>chatOpen(true);
+$('privateCopy').onclick=()=>{ $('privateMenu').open=false;copyInvite() };
+$('privateExit').onclick=()=>{ $('privateMenu').open=false;$('leave').click() };
+$('dockToggle').onclick=()=>setDockExpanded(!dockExpanded);
 $('chatopen').onclick=()=>chatOpen($('chatpanel').hidden);$('chatclose').onclick=()=>chatOpen(false);$('chatbackdrop').onclick=()=>chatOpen(false);$('guideShare').onclick=copyInvite;$('chatform').onsubmit=postMessage;$('chatinput').oninput=()=>{if(online()&&stamp()-lastTyping>1200){lastTyping=stamp();send({type:'typing'})}};
 $('call').onclick=startVoice;$('hangup').onclick=()=>stopVoice(true);$('acceptcall').onclick=acceptVoice;$('declinecall').onclick=()=>{send({type:'voice-decline',id:voiceId});stopVoice(false)};$('mic').onclick=()=>{if(!stream||!stream.getAudioTracks().some(t=>t.readyState==='live'))return;micMuted=!micMuted;stream.getAudioTracks().filter(t=>t.readyState==='live').forEach(t=>t.enabled=!micMuted);send({type:'voice-mute',id:voiceId,value:micMuted});refreshVoice()};$('speaker').onclick=async()=>{if(voice!=='connected')return;if(playbackBlocked){try{await audio.play();playbackBlocked=false}catch{toast('Audio playback blocked in browser.')}}else{soundMuted=!soundMuted;audio.muted=soundMuted}refreshVoice()};
 $('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(!host&&!conn?.open){connecting=false;join()}}presence()}});
