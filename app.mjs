@@ -124,9 +124,9 @@ function updateDrawClock(){
  if(host&&online()&&S.couple.phase==='draw'&&ms<=0)coupleAct('end');
 }
 function busy(v){$('create').disabled=v;$('join').disabled=v;$('create').textContent=v?'Connecting...':'Create our room →'}
-function codegen(){const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from(crypto.getRandomValues(new Uint8Array(12)),v=>abc[v%abc.length]).join('')}
+function codegen(){return String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0')}
 function extractCode(value){try{if(value.includes('://')){const u=new URL(value);value=new URLSearchParams(u.hash.slice(1)).get('room')||u.searchParams.get('room')||''}}catch{}return value.trim().replace(/[\s-]/g,'').toUpperCase()}
-function create(isHost){if(active)return;if(!window.Peer){$('entryerror').textContent='The connection library has not loaded. Check your connection and refresh.';return}name=$('nickname').value.trim().slice(0,24)||'Sweetheart';try{localStorage.setItem('la-name',name)}catch{}room=isHost?codegen():extractCode($('roominput').value);if(!/^[A-Z0-9]{12}$/.test(room)){$('entryerror').textContent='Enter a 12-character room code or paste the latest invite link.';return}
+function create(isHost){if(active)return;if(!window.Peer){$('entryerror').textContent='The connection library has not loaded. Check your connection and refresh.';return}name=$('nickname').value.trim().slice(0,24)||'Sweetheart';try{localStorage.setItem('la-name',name)}catch{}room=isHost?codegen():extractCode($('roominput').value);if(!/^\d{6}$/.test(room)){$('entryerror').textContent='Enter a 6-digit room code or paste the latest invite link.';return}
 host=isHost;active=true;connected=false;connecting=false;blocked=false;closed=false;partner='Your partner';guestSession='';joinCount=0;S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;signalReady=false;busy(true);$('entryerror').textContent='';
 const p=new Peer(host?'love-arcade-v2-'+room:undefined,{debug:0});peer=p;
 connectionTimer=setTimeout(()=>{if(peer===p&&!p.open){leave(false);$('entryerror').textContent='Could not reach the multiplayer service. Please try again.'}},19000);
@@ -195,7 +195,7 @@ function syncJourney(){
  $('journeyLive').classList.toggle('is-connected',ready);
  $('journeyLive').lastChild.textContent=ready?' Together':host?' Waiting':' Connecting';
  $('journeyInvite').hidden=!host&&next==='waiting';
- $('waitingCode').textContent=room.match(/.{1,4}/g)?.join(' ')||'—';
+ $('waitingCode').textContent=room||'—';
  const guestWaiting=!host&&next==='waiting';
  $('waitingTitle').innerHTML=guestWaiting?'Finding <em>your person.</em>':'Good things are <em>better together.</em>';
  $('waitingDescription').textContent=guestWaiting?'We’re connecting you to your private room. Keep this page open for a moment.':'Your room is ready. Invite your favorite person and we’ll bring you into your private game lounge as soon as they join.';
@@ -221,7 +221,7 @@ function presence(){if(!active)return;syncJourney();const is=online();$('myname'
  myStatus.textContent=myOnline?(document.hidden?'● Online · Away':'● Online'):'● Offline';
  const partnerState=is?'is-online':(connected||guestSession?'is-offline':'is-waiting');
  theirStatus.className='presence-label '+partnerState;
- theirStatus.textContent=is?(presenceAway?'● Online · Away':'● Online'):(connected||guestSession?'● Offline':'○ Waiting');$('hearts').textContent=S.hearts;$('roomcode').textContent=room.match(/.{1,4}/g).join(' ');$('connectionbanner').replaceChildren();let msg=!navigator.onLine?'You are offline. Games and chat are paused.':closed?'Host ended the room. Leave to start again.':!is?(host?'Waiting for your partner, or for them to reconnect.':'Partner offline or room unavailable.'):presenceAway?'Your partner switched tabs. Play resumes when they return.':'';if(msg){const t=document.createElement('span');t.textContent=msg;$('connectionbanner').append(t);if(!is&&!host&&!closed){const b=document.createElement('button');b.className='textbutton';b.textContent='Reconnect';b.onclick=()=>{joinCount=0;connecting=false;join()};$('connectionbanner').append(b)}}$('chatsend').disabled=!is;$('chatinput').disabled=!is;$('featured').disabled=!is;$('watchLaunch').disabled=!is;document.querySelectorAll('#gamecards button').forEach(b=>b.disabled=!is);const field=$('gamefield');if(field)field.disabled=!is;refreshVoice();updateExperience()}
+ theirStatus.textContent=is?(presenceAway?'● Online · Away':'● Online'):(connected||guestSession?'● Offline':'○ Waiting');$('hearts').textContent=S.hearts;$('roomcode').textContent=room;$('connectionbanner').replaceChildren();let msg=!navigator.onLine?'You are offline. Games and chat are paused.':closed?'Host ended the room. Leave to start again.':!is?(host?'Waiting for your partner, or for them to reconnect.':'Partner offline or room unavailable.'):presenceAway?'Your partner switched tabs. Play resumes when they return.':'';if(msg){const t=document.createElement('span');t.textContent=msg;$('connectionbanner').append(t);if(!is&&!host&&!closed){const b=document.createElement('button');b.className='textbutton';b.textContent='Reconnect';b.onclick=()=>{joinCount=0;connecting=false;join()};$('connectionbanner').append(b)}}$('chatsend').disabled=!is;$('chatinput').disabled=!is;$('featured').disabled=!is;$('watchLaunch').disabled=!is;document.querySelectorAll('#gamecards button').forEach(b=>b.disabled=!is);const field=$('gamefield');if(field)field.disabled=!is;refreshVoice();updateExperience()}
 function updateExperience(){
  if(!active)return;
  const ready=online();
@@ -309,7 +309,7 @@ const inviteParam=new URLSearchParams(location.hash.slice(1)).get('room')||new U
 if(inviteParam){
  const code=extractCode(inviteParam);
  $('roominput').value=code;
- if(/^[A-Z0-9]{12}$/.test(code)){
+ if(/^\d{6}$/.test(code)){
   // Invite URLs are explicit consent to join. Never auto-join from manual input.
   // Start as soon as the page has initialized; PeerJS comes from a deferred script.
   if(!$('nickname').value.trim())$('nickname').value='Player 2';
