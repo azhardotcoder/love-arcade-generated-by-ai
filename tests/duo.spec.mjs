@@ -269,6 +269,13 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
  await guest.locator('#watchAdd').click();
  await expect(host.locator('.watch-queue-item')).toHaveCount(1);
  await expect(guest.locator('.watch-queue-item')).toHaveCount(1);
+ await expect(host.locator('#watchQueueToggle')).toBeEnabled();
+ await host.locator('#watchQueueToggle').click();
+ await expect(host.locator('#watchSidebar')).toBeHidden();
+ await expect(host.locator('#watchVideoShell')).toBeVisible();
+ await expect(guest.locator('#watchSidebar')).toBeVisible();
+ await host.locator('#watchQueueToggle').click();
+ await expect(host.locator('#watchSidebar')).toBeVisible();
  await expect(host.locator('#watchReady')).toBeEnabled();
  await host.locator('#watchReady').click();
  await expect(guest.locator('#watchStatus')).toContainText('1/2 confirmed');
