@@ -322,7 +322,7 @@ if(inviteParam){
    if(attempt<40){setTimeout(()=>tryInvite(attempt+1),250);return}
    $('entryerror').textContent='The multiplayer service is taking too long. Refresh or tap Join.';
   };
-  tryInvite();
+  setTimeout(()=>tryInvite(),0);
  }else{
   $('entryerror').textContent='This invite link is invalid. Ask your partner to share a new one.';
  }
