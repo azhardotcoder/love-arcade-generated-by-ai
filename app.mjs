@@ -175,7 +175,7 @@ function saveCloudRoom(){
 }
 function cloudInviteLink(){
  if(!cloudInviteToken)throw new Error('The private invitation is not available. Create a new room.');
- return inviteLink(location.origin,location.pathname,room,cloudInviteToken);
+ return inviteLink(location.origin,location.pathname+(['127.0.0.1','localhost'].includes(location.hostname)?location.search:''),room,cloudInviteToken);
 }
 function initCloudVoicePeer(){
  if(!cloudMode||peer||!window.Peer)return;
@@ -541,7 +541,7 @@ function presence(){if(!active)return;syncJourney();const is=online();$('myname'
  myStatus.textContent=myOnline?(document.hidden?'● Online · Away':'● Online'):'● Offline';
  const partnerState=is?'is-online':(connected||guestSession?'is-offline':'is-waiting');
  theirStatus.className='presence-label '+partnerState;
- theirStatus.textContent=is?(presenceAway?'● Online · Away':'● Online'):(connected||guestSession?'● Offline':'○ Waiting');$('hearts').textContent=S.hearts;$('roomcode').textContent=room;$('connectionbanner').replaceChildren();let msg=!navigator.onLine?'You are offline. Games and chat are paused.':closed?'Host ended the room. Leave to start again.':!is?(host?'Waiting for your partner, or for them to reconnect.':'Partner offline or room unavailable.'):'';if(msg){const t=document.createElement('span');t.textContent=msg;$('connectionbanner').append(t);if(!is&&!host&&!closed){const b=document.createElement('button');b.className='textbutton';b.textContent='Reconnect';b.onclick=()=>{joinCount=0;connecting=false;join()};$('connectionbanner').append(b)}}$('chatsend').disabled=!is;$('chatinput').disabled=!is;$('featured').disabled=!is;$('watchLaunch').disabled=!is;document.querySelectorAll('#gamecards button').forEach(b=>b.disabled=!is);const field=$('gamefield');if(field)field.disabled=!is;refreshVoice();updateExperience()}
+ theirStatus.textContent=is?(presenceAway?'● Online · Away':'● Online'):(connected||guestSession?'● Offline':'○ Waiting');$('hearts').textContent=S.hearts;$('roomcode').textContent=room;$('connectionbanner').replaceChildren();let msg=!navigator.onLine?'You are offline. Games and chat are paused.':closed?'Host ended the room. Leave to start again.':!is?(host?'Waiting for your partner, or for them to reconnect.':'Partner offline or room unavailable.'):'';if(msg){const t=document.createElement('span');t.textContent=msg;$('connectionbanner').append(t);if(!is&&!host&&!closed){const b=document.createElement('button');b.className='textbutton';b.textContent='Reconnect';b.onclick=()=>{if(cloudMode)cloud?.reconnectNow();else{joinCount=0;connecting=false;join()}};$('connectionbanner').append(b)}}$('chatsend').disabled=!is;$('chatinput').disabled=!is;$('featured').disabled=!is;$('watchLaunch').disabled=!is;document.querySelectorAll('#gamecards button').forEach(b=>b.disabled=!is);const field=$('gamefield');if(field)field.disabled=!is;refreshVoice();updateExperience()}
 function updateExperience(){
  if(!active)return;
  const ready=online();
@@ -661,10 +661,18 @@ if(inviteParam){
   $('entryerror').textContent='This invite link is invalid. Ask your partner to share a new one.';
  }
 }
+if(cloudMode&&!inviteParam){
+ const saved=storedCloudRoom();
+ if(saved){
+  if(saved.name&&!$('nickname').value.trim())$('nickname').value=saved.name;
+  setTimeout(()=>{if(!active){name=saved.name||$('nickname').value.trim()||'Sweetheart';cloudEnter(saved.role,saved.code,saved.token,saved.invite||'')}},0);
+ }
+}
 $('create').onclick=()=>create(true);$('join').onclick=()=>create(false);$('roominput').onkeydown=e=>{if(e.key==='Enter')create(false)};$('invite').onclick=copyInvite;$('journeyInvite').onclick=shareRoom;$('waitingShare').onclick=shareRoom;$('waitingCopy').onclick=copyInvite;$('waitingLeave').onclick=()=>$('leave').click();
 $('retryConnection').onclick=()=>{
  if(!active||host||blocked)return;
  clearTimeout(retryTimer);retryTimer=null;clearTimeout(connectionTimer);
+ if(cloudMode){connectionIssue='Reconnecting…';cloud?.reconnectNow();presence();return}
  if(conn&&!conn.open){const old=conn;conn=null;old.close()}
  connecting=false;joinCount=0;connectionIssue='';
  join();presence();
@@ -767,7 +775,7 @@ $('privateExit').onclick=()=>{ $('privateMenu').open=false;$('leave').click() };
 $('dockToggle').onclick=()=>setDockExpanded(!dockExpanded);
 $('chatopen').onclick=()=>chatOpen($('chatpanel').hidden);$('chatclose').onclick=()=>chatOpen(false);$('chatbackdrop').onclick=()=>chatOpen(false);$('guideShare').onclick=copyInvite;$('chatform').onsubmit=postMessage;$('chatinput').oninput=()=>{if(online()&&stamp()-lastTyping>1200){lastTyping=stamp();send({type:'typing'})}};
 $('call').onclick=startVoice;$('hangup').onclick=()=>stopVoice(true);$('acceptcall').onclick=acceptVoice;$('declinecall').onclick=()=>{send({type:'voice-decline',id:voiceId});stopVoice(false)};$('mic').onclick=()=>{if(!stream||!stream.getAudioTracks().some(t=>t.readyState==='live'))return;micMuted=!micMuted;stream.getAudioTracks().filter(t=>t.readyState==='live').forEach(t=>t.enabled=!micMuted);send({type:'voice-mute',id:voiceId,value:micMuted});refreshVoice()};$('speaker').onclick=async()=>{if(voice!=='connected')return;if(playbackBlocked){try{await audio.play();playbackBlocked=false}catch{toast('Audio playback blocked in browser.')}}else{soundMuted=!soundMuted;audio.muted=soundMuted}refreshVoice()};
-$('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(!host&&!conn?.open){connecting=false;join()}}presence()}});
-window.addEventListener('pagehide',e=>{stopVoice(true);if(!e.persisted)peer?.destroy()});
-window.addEventListener('pageshow',e=>{if(e.persisted&&active){if(peer?.disconnected&&!peer.destroyed){try{peer.reconnect()}catch{}}if(!host&&!conn?.open){connecting=false;join()}send({type:'sync'});presence()}});window.addEventListener('beforeunload',e=>{if(host&&active&&connected){e.preventDefault();e.returnValue=''}});
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden,sentAt:stamp()});presence();if(!host&&!conn?.open&&!connecting&&!retryTimer&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);setInterval(updateDrawClock,1000);watchController.init();refreshVoice();
+$('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(cloudMode){if(active&&!cloud?.isReady())cloud?.reconnectNow()}else if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(cloudMode){if(!cloud?.isReady())cloud?.reconnectNow()}else if(!host&&!conn?.open){connecting=false;join()}}presence()}});
+window.addEventListener('pagehide',e=>{stopVoice(true);if(cloudMode)cloud?.stop();if(!e.persisted)peer?.destroy()});
+window.addEventListener('pageshow',e=>{if(e.persisted&&active){if(peer?.disconnected&&!peer.destroyed){try{peer.reconnect()}catch{}}if(cloudMode)cloud?.reconnectNow();else if(!host&&!conn?.open){connecting=false;join()}send({type:'sync'});presence()}});window.addEventListener('beforeunload',e=>{if(host&&active&&connected){e.preventDefault();e.returnValue=''}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){if(!cloudMode)send({type:'ping',away:document.hidden,sentAt:stamp()});presence();if(!cloudMode&&!host&&!conn?.open&&!connecting&&!retryTimer&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);setInterval(updateDrawClock,1000);watchController.init();refreshVoice();
