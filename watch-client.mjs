@@ -99,7 +99,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
   $('watchQueueToggleText').textContent='Playlist · '+s.queue.length;
   if(!queueInitiallySet&&s.queue.length&&s.index>=0){
    queueInitiallySet=true;
-   queueExpanded=false;
+   queueExpanded=true;
   }
   if(!s.queue.length){queueExpanded=true;queueInitiallySet=false}
   $('watchSidebar').dataset.expanded=String(queueExpanded);
