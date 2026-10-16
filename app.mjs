@@ -30,8 +30,9 @@ let connectionIssue='',incomingAttemptAt=0,roomOpenedAt=0,helpAutoShown=false;
 let cloud=null,cloudPartnerOnline=false,cloudInviteToken='',cloudRoomToken='',cloudRemoteVoiceId='',cloudApproved=false;
 let call=null,stream=null,voice='off',voiceId='',voiceToken=0,micMuted=false,soundMuted=false,partnerMicMuted=false,playbackBlocked=false,callStarted=0,callTimeout=null,voiceClock=null;
 const audio=$('remoteaudio');
-let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1,hostClockOffset=0,lastRemoteReaction=0;
-const watchController=createWatchController({state:()=>S,seat:()=>host?0:1,online:()=>online(),hostTime:()=>stamp()+(host?0:hostClockOffset),act:a=>act(a),send:d=>send(d),toast:t=>toast(t)});
+let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1,hostClockOffset=0,cloudClockOffset=0,lastRemoteReaction=0;
+const clockTimestamp=()=>stamp()+(cloudMode?cloudClockOffset:host?0:hostClockOffset);
+const watchController=createWatchController({state:()=>S,seat:()=>host?0:1,online:()=>online(),hostTime:clockTimestamp,act:a=>act(a),send:d=>send(d),toast:t=>toast(t)});
 let drawActive=false,drawPoints=[],drawColor='#37253e',drawWidth=6,drawTimer=null,drawLastMove=0;
 const online=()=>active&&connected&&conn?.open&&navigator.onLine&&!closed&&
  (cloudMode?cloudPartnerOnline&&cloud?.isReady():stamp()-lastSeen<17000);
@@ -96,10 +97,10 @@ function chessClipboard(){
 function chessClockUpdate(){
  if(!active||S.game!=='chess'||!S.chess)return;
  const c=S.chess;
- if(c.status==='playing'&&c.mode!=='classic'&&host&&online()&&clockNow(c)[c.turn]<=0){
+ if(c.status==='playing'&&c.mode!=='classic'&&host&&online()&&clockNow(c,clockTimestamp())[c.turn]<=0){
   act({type:'chess-tick'});return;
  }
- const current=clockNow(c,stamp()+(host?0:hostClockOffset));
+ const current=clockNow(c,clockTimestamp());
  document.querySelectorAll('[data-chess-clock]').forEach(el=>{
   const seat=Number(el.dataset.chessClock);
   const v=current[seat];
@@ -156,7 +157,7 @@ function displayCouple(){
 function updateDrawClock(){
  if(S.game!=='pictionary'||!S.couple)return;
  const el=$('pictionaryClock');if(!el)return;
- const ms=Math.max(0,S.couple.endsAt-(stamp()+(host?0:hostClockOffset)));
+ const ms=Math.max(0,S.couple.endsAt-(clockTimestamp()));
  const sec=Math.ceil(ms/1000);el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
  if(host&&online()&&S.couple.phase==='draw'&&ms<=0)coupleAct('end');
 }
@@ -228,6 +229,11 @@ function handleCloudState(state){
 }
 function onCloudEvent(d){
  if(!active)return;
+ if(d.type==='pong'&&Number.isFinite(d.serverTime)&&Number.isFinite(d.clientSentAt)&&Number.isFinite(d.clientReceivedAt)){
+  const roundTrip=Math.max(0,d.clientReceivedAt-d.clientSentAt);
+  if(roundTrip<=12000)cloudClockOffset=d.serverTime+roundTrip/2-d.clientReceivedAt;
+  return;
+ }
  if(d.type==='welcome'&&validState(d.state)){
   connected=true;blocked=false;closed=false;cloudApproved=true;connectionIssue='';
   lastSeen=stamp();cloudRoomToken=cloud.getToken()||cloudRoomToken;
@@ -337,7 +343,7 @@ function cloudEnter(role,code,token,invite=''){
  S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;
  connectionIssue='Connecting to your private room…';helpAutoShown=false;
  $('connectionHelp').open=false;$('entryerror').textContent='';
- cloudRoomToken=token;cloudInviteToken=host?invite:'';
+ cloudRoomToken=token;cloudInviteToken=host?invite:'';cloudClockOffset=0;
  const transport=cloudClient();
  conn={
   get open(){return transport.isReady()},
@@ -605,7 +611,7 @@ if(g==='truth'){h+='<h2>Truth or Dare</h2><div class="turnline"><span class="tur
 if(['quiz','rather','notes'].includes(g)){const question=g==='quiz'?QUESTIONS[(S.round-1)%QUESTIONS.length]:g==='notes'?'Tell them something beautiful.':'What would you rather?';h+='<h2>'+esc(question)+'</h2><p class="subtitle">Both answers stay hidden until you each submit.</p>';if(S.phase==='reveal'){const options=g==='rather'?RATHER[(S.round-1)%RATHER.length]:null;h+='<p class="reveal-title">Two hearts, one reveal.</p>';for(const i of [seat,1-seat])h+='<div class="answerbox"><small>'+(i===seat?'YOU':esc(partner).toUpperCase())+'</small><p>'+esc(options?options[S.answers[i]]:S.answers[i])+'</p></div>';h+=S.ready[seat]?'<div class="waiting">Waiting for your partner to continue…</div>':button('next','Ready for next round')}else if(S.answers[seat]!==null)h+='<div class="waiting">Your answer is sealed. Waiting for your partner…</div>';else if(g==='rather')h+='<div class="choices">'+RATHER[(S.round-1)%RATHER.length].map((x,i)=>button('option',esc(x),'choice','data-value="'+i+'"')).join('')+'</div>';else h+=ta(g==='notes'?'Write your secret love note':'Share your answer',g==='notes'?1000:500)+button('answer',g==='notes'?'Seal my love note':'Lock my answer')}
 if(g==='chess'){
  if(chessLastEpoch!==S.epoch||chessLastWhite!==S.chess.white){chessLastEpoch=S.epoch;chessLastWhite=S.chess.white;chessFlip=false;chessSelection=null;chessPromotion=null}
- $('gamebody').innerHTML=chessBoardView(S.chess,seat,ChessCtor,chessSelection,chessFlip,chessPromotion,stamp()+(host?0:hostClockOffset));
+ $('gamebody').innerHTML=chessBoardView(S.chess,seat,ChessCtor,chessSelection,chessFlip,chessPromotion,clockTimestamp());
  updateExperience();chessClockUpdate();return;
 }
 if(g==='match'){h+='<h2>'+ (S.phase==='win'?'All hearts found. Together.':'Find all six perfect pairs.')+'</h2><div class="turnline"><span class="turnchip '+(mine?'':'other')+'">'+who+'</span></div><p class="subtitle">'+S.moves+' attempts · '+S.found.length/2+' pairs matched</p>';if(S.feedback)h+='<div class="feedback">'+esc(S.feedback)+'</div>';h+='<div class="memorygrid">'+S.board.map((x,i)=>'<button class="memorycard '+(S.found.includes(i)?'found revealed':S.open.includes(i)?'revealed':'')+'" data-do="flip" data-index="'+i+'" '+(!mine||S.open.length===2||S.open.includes(i)||S.found.includes(i)?'disabled':'')+' aria-label="Card '+(i+1)+'">'+(S.found.includes(i)||S.open.includes(i)?x:'♡')+'</button>').join('')+'</div>';if(S.phase==='win')h+=S.ready[seat]?'<div class="waiting">Waiting for partner to replay…</div>':button('replay','Play another round')}
