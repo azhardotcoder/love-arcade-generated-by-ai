@@ -16,7 +16,7 @@ A lightweight, mobile-first eleven-game date-night arcade for two players. Creat
 - Chess Royale with legal chess.js moves, check/checkmate, castling, en passant, pawn promotion, rapid/blitz/classic clocks, takebacks, draw offers, resignation, rematches, move list and PGN export.
 - Truth or Dare with server-like **host-authoritative** approval and turn switching, retry, and optional skip.
 - Love Quiz, Would You Rather, secret Love Notes, and cooperative Heart Match.
-- Two-person invite-only sessions using a 12-character room code and PeerJS WebRTC data channels.
+- Two-person invite-only sessions using a 6-digit numeric room code and PeerJS WebRTC data channels.
 - Session chat with delivery receipts and reconnect replay, optional voice, microphone mute, speaker mute, and hang-up.
 - Online/offline/away awareness and responsive dark UI.
 - SEO metadata, structured data, sitemap, robots, Open Graph preview, security headers, and progressive-web-app manifest.
@@ -80,7 +80,7 @@ See [GitHub Actions](https://github.com/azhardotcoder/love-arcade-generated-by-a
 
 ## Security and privacy
 
-- Share a room code only with the intended partner; it is a **shared secret**, not authenticated user identity.
+- Share a room code only with the intended partner; it is a convenient invite code, not secure authentication.
 - No application login or permanent server-side conversation history is implemented.
 - Chat and love notes are kept in memory while the browser session is open. Nicknames may be remembered in local storage, and a reconnect identifier in session storage.
 - PeerJS signaling and WebRTC networking can expose connection metadata to providers; do not use the app for highly sensitive information.
