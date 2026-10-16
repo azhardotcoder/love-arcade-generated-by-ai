@@ -200,3 +200,172 @@ body:has(#room:not([hidden])) .shell{max-width:1150px;padding-inline:clamp(17px,
 @media(prefers-reduced-motion:reduce){
  .private-choice,#dock .dock-panel,#dock .dock-toggle{transition:none!important}
 }
+
+
+/* v1.1 — Immersive game mode. Room chrome disappears when play begins. */
+#room[data-stage="activity"]>.private-header,
+#room[data-stage="activity"]>.journey-nav,
+#room[data-stage="activity"]>.players,
+#room[data-stage="activity"]>.roomhead,
+#room[data-stage="activity"]>.activity-heading,
+#room[data-stage="activity"]>.roomfooter{display:none!important}
+#room[data-stage="activity"]{
+  padding-top:clamp(9px,2vw,20px);
+  padding-bottom:calc(112px + env(safe-area-inset-bottom,0px));
+}
+#room[data-stage="activity"]>#connectionbanner{
+  width:min(100%,910px);margin:0 auto 11px;
+  border:1px solid #f2b9ac26;background:#24212a;
+  color:#d3c0bc;font-size:11px;padding:9px 12px;border-radius:10px;
+}
+#room[data-stage="activity"] #game{
+  width:100%;max-width:980px;margin:0 auto;
+}
+#room[data-stage="activity"] #game .gamehead{
+  width:min(100%,910px);max-width:910px;margin:0 auto 13px;
+  min-height:47px;padding:0;
+  display:flex;justify-content:space-between;align-items:center;
+  gap:12px;background:transparent;border:0;box-shadow:none;
+}
+#room[data-stage="activity"] #game .gamehead #back{
+  min-height:42px;padding:10px 14px;background:#202430;
+  border:1px solid #ffffff20;border-radius:12px;
+  color:#e9e7ef;font-size:12px;font-weight:650;
+}
+#room[data-stage="activity"] #game .gamehead #back:hover{background:#292d3b}
+#room[data-stage="activity"] #game .gamehead .game-name{display:none!important}
+#room[data-stage="activity"] #game .gamehead #roundlabel{
+  font-size:10px;color:#b7becb;letter-spacing:.5px;
+  border:1px solid #ffffff18;background:#ffffff06;
+  padding:7px 10px;border-radius:10px;
+}
+#room[data-stage="activity"][data-pack-game="true"] #game .gamehead .game-head-center,
+#room[data-stage="activity"][data-pack-game="true"] #gameStatus{
+  display:none!important;
+}
+#room[data-stage="activity"] #game .gamehead #rules{
+  min-width:42px;min-height:42px;border:1px solid #ffffff20;
+  background:#202430;color:#e9e7ef;
+  border-radius:12px;display:flex;align-items:center;justify-content:center;
+  gap:7px;text-decoration:none;padding:9px 12px;font-size:12px;
+}
+#room[data-stage="activity"] #game .gamehead #rules:hover{background:#292d3b}
+#room[data-stage="activity"] #game .gamehead .compact-rules>span:first-child{font-size:17px;font-weight:600;line-height:1}
+#room[data-stage="activity"] .game-status{
+  max-width:910px;border:1px solid #ffffff17;border-radius:12px;
+  background:#191d28;box-shadow:none;margin:0 auto 12px;
+}
+#room[data-stage="activity"] .game-surface,
+#room[data-stage="activity"] .couple-surface{
+  max-width:910px;
+  margin:0 auto 14px;
+  border:1px solid #ffffff1f;
+  border-radius:20px;
+  background:linear-gradient(160deg,#1f222e,#191c27);
+  box-shadow:none;
+}
+#room[data-stage="activity"] .couple-surface h2{
+  font-size:clamp(27px,3.8vw,36px);line-height:1.2;
+  margin:10px 0 18px;letter-spacing:-.8px;
+}
+#room[data-stage="activity"] .couple-surface>.eyebrow{color:#e8b0cf}
+#room[data-stage="activity"] .escape-scene,
+#room[data-stage="activity"] .bottle-task,
+#room[data-stage="activity"] .xoxo-cell,
+#room[data-stage="activity"] .date-option{
+  box-shadow:none;
+  background-color:#252634;
+}
+#room[data-stage="activity"] #watch{margin:0 auto;max-width:1150px}
+#room[data-stage="activity"] #watch .watch-head{margin:0 0 16px;padding:0;border:0}
+#room[data-stage="activity"] #watch .watch-head .secondary{
+  min-height:42px;border-radius:12px;background:#202430;
+  border:1px solid #ffffff20;color:#e9e7ef;
+}
+#room[data-stage="activity"] #watch .watch-head h2{font-size:clamp(22px,3.6vw,30px)}
+#room[data-stage="activity"] #watch .watch-head p{color:#abb3c2}
+
+/* Mobile controls: a small right-edge tab, not a full-screen bottom toolbar. */
+#dock:not([hidden]){
+  right:max(10px,env(safe-area-inset-right,0px));
+  bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  max-width:calc(100vw - 20px);
+  gap:6px;
+}
+#dock .dock-toggle{
+  position:relative;
+  width:47px;min-width:47px;min-height:49px;
+  padding:0;border-radius:16px;
+  background:#252a37;border:1px solid #ffffff38;
+  box-shadow:0 8px 22px #0009;
+}
+#dock[data-collapsed="true"] .dock-toggle{width:47px;min-width:47px}
+#dock[data-collapsed="true"] .dock-toggle:after{display:none;content:none}
+#dock .dock-toggle #dockArrow{font:400 29px/1 system-ui,sans-serif;transform:translateY(-1px)}
+#dock .dock-tray-signal{
+  position:absolute;top:6px;left:7px;width:7px;height:7px;
+  border-radius:50%;background:#88909e;
+  box-shadow:0 0 0 2px #242937;
+}
+#dock .dock-tray-signal.live{background:#73e3ad;box-shadow:0 0 0 2px #242937,0 0 9px #73e3ad77}
+#dock .dock-tray-signal.connecting{background:#edc38c}
+#dock .dock-tray-unread:not([hidden]){
+  position:absolute;top:-7px;right:-6px;
+  display:grid;place-items:center;
+  min-width:20px;height:20px;padding:0 3px;
+  border-radius:10px;border:2px solid #171b24;
+  background:#ffc0d9;color:#382136;font:700 10px/1 system-ui,sans-serif;
+}
+#dock .dock-panel{
+  transition:transform .3s cubic-bezier(.18,.9,.24,1),
+    opacity .2s ease,visibility .3s,max-width .3s cubic-bezier(.18,.9,.24,1),
+    padding .3s,border-width .3s;
+}
+#dock[data-collapsed="true"] .dock-panel{transform:translateX(42px)}
+#dock .dock-panel .voice-summary{min-width:110px}
+#dock .dock-panel .dockbtn[disabled]{opacity:.42}
+#dock .dock-panel .dockbtn{touch-action:manipulation}
+#dock .dock-toggle:focus-visible,
+#room[data-stage="activity"] .gamehead button:focus-visible{
+  outline:2px solid #f8bdd9;outline-offset:3px;
+}
+@media(max-width:760px){
+ #room[data-stage="activity"] #gameStatus{display:none!important}
+ #room[data-stage="activity"] .game-surface,
+ #room[data-stage="activity"] .couple-surface{
+   background:#1b1f2a;border:1px solid #ffffff19;
+ }
+ #room[data-stage="activity"] .couple-surface{padding:18px 17px}
+ #room[data-stage="activity"] .couple-surface h2{font-size:29px;margin:8px 0 15px}
+ #room[data-stage="activity"] .couple-surface .escape-scene{padding:18px 14px;min-height:160px}
+ #room[data-stage="activity"] .couple-surface .escape-scene>span{font-size:42px}
+ #room[data-stage="activity"] .couple-surface .escape-scene h3{font-size:20px;margin:8px 0}
+ #room[data-stage="activity"] .couple-surface .escape-progress{margin:15px 0}
+ #room[data-stage="activity"] #game .gamehead{margin-bottom:10px}
+ #room[data-stage="activity"] #game .gamehead .rules-text{display:none}
+ #room[data-stage="activity"] #game .gamehead #rules{padding:9px;min-width:42px}
+ #room[data-stage="activity"] #game .gamehead #back{padding:10px 12px}
+ #room[data-stage="activity"] #game .gamehead #roundlabel{font-size:9px;padding:7px}
+ #dock:not([hidden]){right:9px;bottom:calc(13px + env(safe-area-inset-bottom,0px))}
+ #dock .dock-panel .voice-summary{display:none}
+ #dock .dock-panel{gap:0;padding:7px;max-width:min(340px,calc(100vw - 69px))}
+ #dock .dock-panel .dockactions{gap:4px}
+ #dock .dock-panel .dockbtn{min-width:43px;min-height:44px;padding:4px 3px}
+ #dock .dock-panel .dockbtn svg{width:18px;height:18px}
+ #dock .dock-panel .dockbtn span{font-size:8px}
+ #dock .dock-toggle{width:45px;min-width:45px;min-height:48px;border-radius:14px}
+ #dock[data-collapsed="true"] .dock-toggle{width:45px;min-width:45px}
+ #chatpanel:not([hidden]){
+   bottom:calc(72px + env(safe-area-inset-bottom,0px));
+ }
+}
+@media(max-width:370px){
+ #dock .dock-panel{padding:6px 5px}
+ #dock .dock-panel .dockactions{gap:2px}
+ #dock .dock-panel .dockbtn{min-width:40px}
+ #dock:not([hidden]){right:6px;gap:4px;max-width:calc(100vw - 12px)}
+ #room[data-stage="activity"] .couple-surface{padding:15px 13px}
+}
+@media(prefers-reduced-motion:reduce){
+ #dock .dock-panel{transition:none!important}
+}
