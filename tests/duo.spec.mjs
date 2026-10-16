@@ -413,3 +413,46 @@ test('mobile game is immersive and voice/chat tray collapses on both players',as
  await expect(guest.locator('#room')).toHaveAttribute('data-stage','games');
  await host.close();await guest.close();
 });
+
+
+test('HeartSync and Touch the Same Star synchronize two phones and keep decisions secret',async({context})=>{
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
+ const {host,guest}=await connectPair(context,'Nova','Sky');
+ await host.locator('#homeGames').click();
+ await host.locator('[data-game="heartsync"]').click();
+ await expect(guest.locator('#gamebody .bond-surface')).toBeVisible();
+ await expect(host.locator('#gamebody')).toContainText('HeartSync');
+ await host.locator('[data-bond-action=configure][data-value=deep]').click();
+ await expect(guest.locator('.bond-mode[data-value=deep]')).toHaveClass(/selected/);
+ await host.locator('[data-bond-action=begin]').click();
+ await expect(guest.locator('.bond-question')).toBeVisible();
+ await host.locator('[data-bond-action=choose][data-value="0"]').click();
+ await expect(host.locator('#gamebody')).toContainText('Your answer is safely locked');
+ await expect(guest.locator('[data-bond-action=choose]')).toHaveCount(4);
+ await guest.locator('[data-bond-action=choose][data-value="1"]').click();
+ await expect(host.locator('[data-bond-action=predict]')).toHaveCount(4);
+ await host.locator('[data-bond-action=predict][data-value="1"]').click();
+ await guest.locator('[data-bond-action=predict][data-value="0"]').click();
+ await expect(host.locator('#gamebody .bond-reveal-grid')).toBeVisible();
+ await expect(guest.locator('#gamebody .bond-reveal-grid')).toBeVisible();
+ await expect(host.locator('.bond-points')).toContainText('1');
+ await host.locator('[data-bond-action=next]').click();
+ await guest.locator('[data-bond-action=next]').click();
+ await expect(host.locator('.bond-overline')).toContainText('DISCOVER ME');
+ await host.locator('#back').click();
+ await host.getByRole('dialog').getByRole('button',{name:'Back to games'}).click();
+ await expect(guest.locator('#room')).toHaveAttribute('data-stage','games');
+ await host.locator('[data-game="stars"]').click();
+ await expect(guest.locator('#gamebody .bond-stars')).toBeVisible();
+ await host.locator('[data-bond-action=begin]').click();
+ await expect(host.locator('.bond-sky .bond-star')).toHaveCount(5);
+ await host.locator('.bond-sky [data-bond-action=choose][data-value="2"]').click();
+ await expect(guest.locator('.bond-sky [data-bond-action=choose]')).toHaveCount(5);
+ await guest.locator('.bond-sky [data-bond-action=choose][data-value="2"]').click();
+ await expect(host.locator('.bond-star-reveal')).toContainText('Two hearts, one wish');
+ await expect(guest.locator('.bond-star-reveal')).toContainText('Two hearts, one wish');
+ await host.locator('[data-bond-action=next]').click();
+ await guest.locator('[data-bond-action=next]').click();
+ await expect(guest.locator('.bond-progress')).toHaveAttribute('aria-label','Round 2 of 5');
+ await host.close();await guest.close();
+});
