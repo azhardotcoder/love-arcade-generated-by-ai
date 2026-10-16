@@ -124,9 +124,9 @@ test('connection help and a manual retry are available when direct peer connecti
  await page.locator('#roominput').fill('123456');
  await page.locator('#join').click();
  await expect(page.locator('#waitingRoom')).toBeVisible();
- await expect(page.locator('#retryConnection')).toBeVisible();
  await expect(page.locator('#connectionHelp summary')).toContainText('Having trouble connecting?');
  await page.locator('#connectionHelp summary').click();
+ await expect(page.locator('#retryConnection')).toBeVisible();
  await expect(page.locator('.connection-help-body')).toContainText('TURN relay');
  await expect(page.locator('.connection-help-body')).toContainText('Wi-Fi and mobile data');
  await expect.poll(()=>page.evaluate(()=>window.__testConnectionAttempts)).toBeGreaterThanOrEqual(1);
