@@ -6,7 +6,9 @@
  * Deployment remains intentionally separate from the existing live frontend.
  */
 import {DurableObject} from 'cloudflare:workers';
-import {fresh,reduce,viewForSeat} from '../engine.mjs';
+import {Chess} from 'chess.js';
+import {fresh,reduce,viewForSeat,registerChessRules} from '../engine.mjs';
+registerChessRules(Chess);
 import {
   ROOM_CODE,SECRET,SIX_HOURS,ALLOWED_EVENTS,codeFromRandom,
   secretHex,secretHash,equalHash,displayName,safeOrigin,readMessage,json
