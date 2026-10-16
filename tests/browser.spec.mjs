@@ -8,6 +8,10 @@ test.beforeEach(async ({page})=>{
   window.Peer=class {
    constructor(id){this.id=id||'test-guest';this.handlers={};this.open=false;setTimeout(()=>{this.open=true;this.handlers.open?.(this.id)},25)}
    on(type,handler){this.handlers[type]=handler;return this}
+   connect(){window.__testConnectionAttempts=(window.__testConnectionAttempts||0)+1;
+    const callbacks={};const c={open:false,on(type,fn){callbacks[type]=fn;return this},close(){callbacks.close?.()},send(){}};
+    setTimeout(()=>callbacks.error?.(new Error('Simulated network restriction')),80);return c
+   }
    destroy(){this.open=false}
   };
  });
@@ -112,4 +116,22 @@ test('dedicated waiting room fits a narrow phone without horizontal overflow',as
  expect(widths.document).toBeLessThanOrEqual(widths.viewport+2);
  const audit=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
  expect(audit.violations.filter(v=>['critical','serious'].includes(v.impact)).map(v=>v.id)).toEqual([]);
+});
+
+test('connection help and a manual retry are available when direct peer connection fails',async({page})=>{
+ await page.goto('/');
+ await page.locator('#nickname').fill('Guest');
+ await page.locator('#roominput').fill('123456');
+ await page.locator('#join').click();
+ await expect(page.locator('#waitingRoom')).toBeVisible();
+ await expect(page.locator('#retryConnection')).toBeVisible();
+ await expect(page.locator('#connectionHelp summary')).toContainText('Having trouble connecting?');
+ await page.locator('#connectionHelp summary').click();
+ await expect(page.locator('.connection-help-body')).toContainText('TURN relay');
+ await expect(page.locator('.connection-help-body')).toContainText('Wi-Fi and mobile data');
+ await expect.poll(()=>page.evaluate(()=>window.__testConnectionAttempts)).toBeGreaterThanOrEqual(1);
+ await page.locator('#retryConnection').click();
+ await expect.poll(()=>page.evaluate(()=>window.__testConnectionAttempts)).toBeGreaterThanOrEqual(2);
+ const widths=await page.evaluate(()=>({document:document.documentElement.scrollWidth,viewport:innerWidth}));
+ expect(widths.document).toBeLessThanOrEqual(widths.viewport+2);
 });
