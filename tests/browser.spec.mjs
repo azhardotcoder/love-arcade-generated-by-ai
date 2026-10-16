@@ -29,7 +29,7 @@ test('create a room, see presence & voice controls, and leave safely',async({pag
  await page.getByRole('button',{name:/Create our room/i}).click();
  await expect(page.locator('#room')).toBeVisible();
  await expect(page.locator('#myname')).toHaveText('Sweetheart');
- await expect(page.locator('#roomcode')).toHaveText(/[A-Z2-9]{4} [A-Z2-9]{4} [A-Z2-9]{4}/);
+ await expect(page.locator('#roomcode')).toHaveText(/^\d{6}$/);
  await expect(page.locator('#mic')).toBeDisabled();
  await expect(page.locator('#room')).toHaveAttribute('data-stage','waiting');
  await expect(page.locator('#waitingRoom')).toBeVisible();
