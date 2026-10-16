@@ -85,7 +85,7 @@ test('two browser tabs share approval-based Truth or Dare and chat',async({conte
  await expect(host.locator('#room')).toHaveAttribute('data-stage','activity');
  await expect(guest.locator('#room')).toHaveAttribute('data-stage','activity');
  await expect(host.locator('#lobby')).toBeHidden();
- await expect(host.locator('#privateHeader')).toBeVisible();
+ await expect(host.locator('#privateHeader')).toBeHidden();
  await expect(host.locator('#privateHome')).toBeHidden();
  await host.locator('[data-do="truth"]').click();
  await expect(guest.locator('[data-do="approve"]')).toHaveCount(0);
