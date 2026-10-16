@@ -17,6 +17,11 @@ const query=new URLSearchParams(location.search);
 const cloudMode=query.get('transport')==='cloudflare'||(query.get('transport')!=='peer'&&!['localhost','127.0.0.1'].includes(location.hostname));
 const cloudStoreKey='la-cloud-room-v1';
 const cloudBackend=getBackendURL(location);
+if(cloudMode){
+ const hints=document.querySelectorAll('#connectionHelp .connection-help-body p');
+ if(hints[0])hints[0].textContent='Use a private invite link for instant joining. If your partner entered only the six-digit code, the room owner must approve their request before play can begin.';
+ if(hints[1])hints[1].textContent='Still waiting? Keep both browsers online, check the room code, and tap Retry. Try switching between Wi-Fi and mobile data if the network is blocking Cloudflare. Games and chat use the room server; optional voice calls still depend on WebRTC and may need a TURN relay.';
+}
 const session=(()=>{try{let s=sessionStorage.getItem('love-arcade-session');if(!s){s=uid();sessionStorage.setItem('love-arcade-session',s)}return s}catch{return uid()}})();
 let peer=null,conn=null,host=false,active=false,connected=false,room='',name='',partner='Your partner',guestSession='',lastSeen=0,presenceAway=false,joinCount=0,connecting=false,blocked=false,signalReady=false,S=fresh();
 let lastCelebrateEpoch='',lastExperienceSignature='',messages=[],messageIds=new Set(),unread=0,drafts={},hideTimer=null,retryTimer=null,connectionTimer=null,pingTimer=null,toastTimer=null,chatTypingTimer=null,lastTyping=0,closed=false;
@@ -283,6 +288,11 @@ function onCloudEvent(d){
   const requestId=d.requestId,visitor=String(d.name||'Someone').slice(0,24);
   modal('Allow '+visitor+' to join?', 'Someone entered your six-digit room code. Only approve if this is the person you invited.',
    ()=>cloud?.send({type:'approve',requestId}),'Allow player');
+  const reject=$('dialogactions').querySelector('button.secondary');
+  if(reject){
+   reject.textContent='Decline';
+   reject.onclick=()=>{cloud?.send({type:'reject',requestId});$('dialog').close()};
+  }
   return;
  }
  if(d.type==='error'){
@@ -309,8 +319,10 @@ function cloudClient(){
    if(status==='disconnected'){
     connected=false;cloudPartnerOnline=false;cloudVoiceIDSent=false;
     if(voice!=='off')stopVoice(false);
-    connectionIssue='Reconnecting to your private room automatically…';
-   }else if(status==='reconnecting')connectionIssue='Reconnecting to the room server…';
+    if(!blocked)connectionIssue='Reconnecting to your private room automatically…';
+   }else if(status==='reconnecting')connectionIssue=
+    detail?.attempt>=5&&!cloudApproved?'Cannot find this room. Check the code or ask for a new invite. Still retrying…':
+    'Reconnecting to the room server…';
    else if(status==='connecting')connectionIssue='Connecting to the room server…';
    if(status!=='authorized')presence();
   }
