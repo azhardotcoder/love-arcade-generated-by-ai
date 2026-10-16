@@ -369,3 +369,97 @@ body:has(#room:not([hidden])) .shell{max-width:1150px;padding-inline:clamp(17px,
 @media(prefers-reduced-motion:reduce){
  #dock .dock-panel{transition:none!important}
 }
+
+
+/* Focus mode v1.2: quiet surfaces, useful controls, video-first layout. */
+#room[data-stage="activity"] #game .gamehead{max-width:910px}
+#room[data-stage="activity"] #gamebody{min-width:0}
+#room[data-stage="activity"] .couple-surface,
+#room[data-stage="activity"] .game-surface{box-shadow:0 10px 28px #00000019;border-radius:18px}
+#room[data-stage="activity"] .gamehead .tag{background:transparent}
+#room[data-stage="activity"] .couple-surface .escape-scene{
+  background:linear-gradient(150deg,#2a2d3a,#222633);border:1px solid #ffffff1b;
+}
+#room[data-stage="activity"] .couple-surface .private-clue{
+  border:1px solid #8bd6cc4a;background:#1c3034;
+}
+
+/* Watch Together: the video is the hero. Playlist stays available but optional. */
+#room[data-stage="activity"] #watch .watch-head{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  gap:15px;align-items:center;margin:0 0 18px;padding:0;
+}
+#watch .watch-head-title{min-width:0}
+#watch .watch-head-title .eyebrow{color:#b8a6c0;font-size:9px;letter-spacing:1.3px}
+#room[data-stage="activity"] #watch .watch-head h2{
+  font-size:clamp(19px,2.5vw,27px);font-weight:700;letter-spacing:-.5px;
+  line-height:1.2;margin:4px 0 0;
+}
+#watch .watch-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+#watch .watch-queue-toggle{
+  min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:9px 13px;border:1px solid #ffffff2a;border-radius:12px;
+  color:#eeeaf5;background:#262b37;font-size:11px;font-weight:650;
+}
+#watch .watch-queue-toggle:not(:disabled):hover{background:#303747}
+#watch .watch-queue-toggle:focus-visible{outline:2px solid #f6c5dd;outline-offset:3px}
+#room[data-stage="activity"] #watch .watch-video-shell{
+  border:1px solid #ffffff25;border-radius:17px;background:#090d16;
+  box-shadow:0 14px 42px #0007;
+}
+#room[data-stage="activity"] #watch .watch-empty{background:radial-gradient(circle at center,#262633,#111621 76%)}
+#room[data-stage="activity"] #watch .watch-empty span{color:#eeb4d2;background:#f9c9e318}
+#room[data-stage="activity"] #watch .watch-status{
+  font-size:11px;min-height:30px;padding:8px 2px;color:#aab7c9;
+}
+#room[data-stage="activity"] #watch .watch-controls{
+  background:#191e29;border:1px solid #ffffff1b;box-shadow:none;
+  border-radius:14px;gap:11px;
+}
+#room[data-stage="activity"] #watch .watch-ready-area{
+  background:#1c2c2a;border:1px solid #7bd4b234;
+}
+#room[data-stage="activity"] #watch .watch-react-bar{
+  background:transparent;border:0;padding:7px 0;margin-top:9px;
+}
+#room[data-stage="activity"] #watch .watch-react-bar button{
+  border:1px solid #ffffff1c;background:#1d222d;box-shadow:none;
+}
+#room[data-stage="activity"] #watch .watch-sidebar{
+  background:#1b202b;border:1px solid #ffffff1c;box-shadow:none;
+  border-radius:17px;
+}
+#watch .watch-sidebar[data-expanded="false"]{display:none!important}
+#room[data-stage="activity"] #watch .watch-layout:has(.watch-sidebar[data-expanded="false"]){
+  grid-template-columns:minmax(0,1fr);
+}
+#room[data-stage="activity"] #watch .watch-queue-toggle[aria-expanded="false"]{
+  background:#d8b3cc20;border-color:#e6bdd555;
+}
+@media(min-width:901px){
+ #room[data-stage="activity"] #watch .watch-layout{grid-template-columns:minmax(0,1fr) 295px}
+ #room[data-stage="activity"] #watch .watch-layout:has(.watch-sidebar[data-expanded="false"]) .watch-main{
+   max-width:1020px;margin-inline:auto;width:100%;
+ }
+}
+@media(max-width:760px){
+ #room[data-stage="activity"] #watch{margin-top:0}
+ #room[data-stage="activity"] #watch .watch-head{grid-template-columns:auto minmax(0,1fr) auto;gap:7px;margin-bottom:12px}
+ #room[data-stage="activity"] #watch .watch-head h2{font-size:18px}
+ #watch .watch-head-title .eyebrow{display:none}
+ #watch .watch-head-actions .tag{display:none}
+ #watch .watch-queue-toggle{padding:8px 9px;min-height:42px;font-size:10px}
+ #room[data-stage="activity"] #watch .watch-head .secondary{min-height:42px;padding:9px 10px;font-size:11px}
+ #room[data-stage="activity"] #watch .watch-video-shell{border-radius:12px}
+ #room[data-stage="activity"] #watch .watch-controls{padding:11px 9px;gap:8px}
+ #room[data-stage="activity"] #watch .watch-controls button{min-height:43px}
+ #room[data-stage="activity"] #watch .watch-sidebar{margin:14px 0 76px;padding:16px 13px}
+ #room[data-stage="activity"] #watch .watch-react-bar button{min-width:37px}
+ #room[data-stage="activity"] #watch .watch-empty span{width:59px;height:59px;font-size:32px}
+ #room[data-stage="activity"] #watch .watch-ready-area{padding:10px 12px}
+}
+@media(max-width:370px){
+ #room[data-stage="activity"] #watch .watch-head h2{font-size:16px}
+ #watch .watch-queue-toggle{gap:4px;padding:8px;font-size:9px}
+ #room[data-stage="activity"] #watch .watch-head{gap:5px}
+}
