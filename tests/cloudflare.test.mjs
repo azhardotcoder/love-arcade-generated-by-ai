@@ -59,6 +59,12 @@ test('Cloudflare config defines SQLite-backed Durable Objects, correct Worker an
  assert.equal(config.name,'love-arcade-server');
  assert.equal(config.account_id,'133da2bd551cfcc3dd4e1a7aa9e10cd3');
  assert.equal(config.main,'cloudflare/worker.mjs');
+ const allowed=config.vars.ALLOWED_ORIGINS.split(',');
+ assert.ok(allowed.includes('https://lovearcade.azhardev.in'),'Custom production domain must be authorized');
+ assert.ok(allowed.includes('https://love-arcade-generated-by-ai.vercel.app'),'Default Vercel domain remains authorized');
+ assert.ok(!allowed.some(x=>x==='*'||x==='https://*.azhardev.in'),'Do not allow broad wildcard origins');
+ assert.equal(safeOrigin('https://lovearcade.azhardev.in',config.vars.ALLOWED_ORIGINS),true);
+ assert.equal(safeOrigin('https://lovearcade.azhardev.in.evil.example',config.vars.ALLOWED_ORIGINS),false);
  assert.ok(config.migrations.some(m=>m.new_sqlite_classes.includes('ArcadeRoom')));
  assert.ok(config.migrations.some(m=>m.new_sqlite_classes.includes('CreateLimiter')));
  assert.equal(config.durable_objects.bindings.length,2);
