@@ -27,6 +27,6 @@
     }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://love-arcade-generated-by-ai.vercel.app,http://localhost:4173,http://127.0.0.1:4173"
+    "ALLOWED_ORIGINS": "https://lovearcade.azhardev.in,https://love-arcade-generated-by-ai.vercel.app,http://localhost:4173,http://127.0.0.1:4173"
   }
 }
