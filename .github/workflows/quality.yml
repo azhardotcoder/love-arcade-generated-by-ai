@@ -77,3 +77,14 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Validate Cloudflare Durable Objects configuration and bundle without deploying
         run: npx --yes wrangler@4 deploy --config wrangler.jsonc --dry-run --outdir /tmp/love-arcade-worker
+      - name: Install WebSocket test client
+        run: npm install --ignore-scripts --no-audit --no-fund --no-save ws@8.18.3
+      - name: Boot local Worker and exercise room protocol
+        run: |
+          npx --yes wrangler@4 dev --config wrangler.jsonc --port 8788 --ip 127.0.0.1 --local > /tmp/cloudflare-dev.log 2>&1 &
+          for i in $(seq 1 25); do
+            if curl -fsS http://127.0.0.1:8788/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8788/health
+          node tests/cloudflare-smoke.mjs
