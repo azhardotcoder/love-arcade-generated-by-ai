@@ -136,10 +136,13 @@ export function createCloudClient({onEvent,onStatus,onError,base=DEFAULT_ARCADE_
       }
       onEvent?.(payload);
     });
-    ws.addEventListener('close',()=>{
+    ws.addEventListener('close',event=>{
       clearTimeout(handshakeTimeout);clearInterval(heartbeat);
       if(gen!==generation)return;
       authorized=false;notify('disconnected');
+      if(event?.reason==='Room closed by host'||event?.reason==='Room expired'){
+        closed=true;onEvent?.({type:'room-closed',message:'Your private room was closed.'});return;
+      }
       if(!closed)queueRetry();
     });
     ws.addEventListener('error',()=>{
@@ -161,6 +164,11 @@ export function createCloudClient({onEvent,onStatus,onError,base=DEFAULT_ARCADE_
     isReady:()=>authorized&&socket?.readyState===WebSocket.OPEN,
     getToken:()=>credentials?.token||'',
     getRole:()=>credentials?.role||'',
-    getAttempt:()=>attempt
+    getAttempt:()=>attempt,
+    reconnectNow(){
+      if(!credentials)return;
+      const details={...credentials};
+      stop();closed=false;attempt=0;credentials=details;open();
+    }
   };
 }
