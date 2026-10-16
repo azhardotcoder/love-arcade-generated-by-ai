@@ -21,7 +21,7 @@ function loadYoutubeApi(){
  return ytPromise;
 }
 export function createWatchController({state,seat,online,hostTime,act,send,toast}){
- let player=null,currentId='',playerReady=false,suppressUntil=0,loading=false,queueKey='',reactionTime=0,seekBusy=false,active=false,wasOpen=false;
+ let player=null,currentId='',playerReady=false,suppressUntil=0,loading=false,queueKey='',reactionTime=0,seekBusy=false,active=false,wasOpen=false,queueExpanded=true,queueInitiallySet=false;
  let lastVideoState=-99,lastReadyKey='',pendingLoad='',localPlaying=false;
  const watch=()=>state()?.watch;
  const suppress=ms=>{suppressUntil=Date.now()+ms};
@@ -86,7 +86,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
   const s=watch();if(!s)return;
   const open=s.open;active=open;
   $('watch').hidden=!open;
-  if(!open){if(wasOpen)disposePlayer();wasOpen=false;queueKey='';return}
+  if(!open){if(wasOpen)disposePlayer();wasOpen=false;queueKey='';queueExpanded=true;queueInitiallySet=false;return}
   wasOpen=true;
   const connected=online(),ready=s.ready.every(Boolean),self=seat();
   const selected=s.index>=0?s.queue[s.index]:null;
@@ -94,6 +94,16 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
   $('watchPresence').classList.toggle('watch-online',connected);
   $('watchPresence').classList.toggle('watch-offline',!connected);
   $('watchCount').textContent=s.queue.length+' / '+MAX_QUEUE;
+  const queueToggle=$('watchQueueToggle');
+  queueToggle.disabled=!s.queue.length;
+  $('watchQueueToggleText').textContent='Playlist · '+s.queue.length;
+  if(!queueInitiallySet&&s.queue.length&&s.index>=0){
+   queueInitiallySet=true;
+   queueExpanded=false;
+  }
+  if(!s.queue.length){queueExpanded=true;queueInitiallySet=false}
+  $('watchSidebar').dataset.expanded=String(queueExpanded);
+  queueToggle.setAttribute('aria-expanded',String(queueExpanded));
   $('watchEmpty').hidden=!!selected;
   if(!selected)$('watchStartPlayback').hidden=true;
   $('watchReady').disabled=!connected||!selected||s.ready[self];
@@ -149,6 +159,7 @@ export function createWatchController({state,seat,online,hostTime,act,send,toast
   send({type:'watch-reaction',emoji,epoch:state().epoch,origin:seat()});
  }
  function init(){
+  $('watchQueueToggle').onclick=()=>{queueExpanded=!queueExpanded;$('watchSidebar').dataset.expanded=String(queueExpanded);$('watchQueueToggle').setAttribute('aria-expanded',String(queueExpanded))};
   $('watchLaunch').onclick=()=>{if(!online()){toast('Connect with your partner first.');return}act({type:'watch',kind:'open'})};
   $('watchClose').onclick=()=>act({type:'watch',kind:'close'});
   $('watchAddForm').onsubmit=e=>{
