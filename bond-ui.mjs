@@ -16,7 +16,7 @@ function setup(s,seat){
  const selected=heart?s.category:s.mode;
  const cards='<div class="bond-setup-grid">'+list.map(([id,entry])=>
  '<button type="button" class="bond-mode '+(id===selected?'selected':'')+'" data-bond-action="configure" data-value="'+id+'" '+(seat!==0?'disabled':'')+' aria-pressed="'+(id===selected)+'"><span class="bond-mode-icon">'+esc(entry.icon)+'</span><b>'+esc(entry.title)+'</b><small>'+esc(entry.description)+'</small></button>').join('')+'</div>';
- return frame(s,heart?'Every heart has a story.':'Two people. One sky.',
+ return frame(s,heart?'HeartSync':'Touch the Same Star',
  heart?'Choose a mood for ten questions about who you are and what you wish for.':'Choose your night-sky experience. Your partner sees the same journey.',
  cards+'<div class="bond-setup-footer"><span class="bond-muted">'+(seat===0?'You choose the experience for both players.':'Your partner is choosing the experience for you both.')+'</span>'+(seat===0?button('begin','Start together →','bond-button bond-primary'):'<div class="bond-waiting"><span class="bond-loading"></span> Waiting for your person to start…</div>')+'</div>');
 }
