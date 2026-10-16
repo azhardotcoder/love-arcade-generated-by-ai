@@ -16,6 +16,7 @@ const session=(()=>{try{let s=sessionStorage.getItem('love-arcade-session');if(!
 let peer=null,conn=null,host=false,active=false,connected=false,room='',name='',partner='Your partner',guestSession='',lastSeen=0,presenceAway=false,joinCount=0,connecting=false,blocked=false,signalReady=false,S=fresh();
 let lastCelebrateEpoch='',lastExperienceSignature='',messages=[],messageIds=new Set(),unread=0,drafts={},hideTimer=null,retryTimer=null,connectionTimer=null,pingTimer=null,toastTimer=null,chatTypingTimer=null,lastTyping=0,closed=false;
 let localView='home',lastSharedContext='',dockExpanded=false,chatReturnTarget=null;
+let connectionIssue='',incomingAttemptAt=0,roomOpenedAt=0;
 let call=null,stream=null,voice='off',voiceId='',voiceToken=0,micMuted=false,soundMuted=false,partnerMicMuted=false,playbackBlocked=false,callStarted=0,callTimeout=null,voiceClock=null;
 const audio=$('remoteaudio');
 let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1,hostClockOffset=0,lastRemoteReaction=0;
@@ -137,21 +138,55 @@ function busy(v){$('create').disabled=v;$('join').disabled=v;$('create').textCon
 function codegen(){return String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0')}
 function extractCode(value){try{if(value.includes('://')){const u=new URL(value);value=new URLSearchParams(u.hash.slice(1)).get('room')||u.searchParams.get('room')||''}}catch{}return value.trim().replace(/[\s-]/g,'').toUpperCase()}
 function create(isHost){if(active)return;if(!window.Peer){$('entryerror').textContent='The connection library has not loaded. Check your connection and refresh.';return}name=$('nickname').value.trim().slice(0,24)||'Sweetheart';try{localStorage.setItem('la-name',name)}catch{}room=isHost?codegen():extractCode($('roominput').value);if(!/^\d{6}$/.test(room)){$('entryerror').textContent='Enter a 6-digit room code or paste the latest invite link.';return}
-host=isHost;active=true;localView='home';lastSharedContext='';dockExpanded=false;connected=false;connecting=false;blocked=false;closed=false;partner='Your partner';guestSession='';joinCount=0;S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;signalReady=false;busy(true);$('entryerror').textContent='';
+host=isHost;active=true;localView='home';lastSharedContext='';dockExpanded=false;connected=false;connecting=false;blocked=false;closed=false;partner='Your partner';guestSession='';joinCount=0;connectionIssue='';incomingAttemptAt=0;roomOpenedAt=stamp();S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;signalReady=false;busy(true);$('entryerror').textContent='';
 const p=new Peer(host?'love-arcade-v2-'+room:undefined,{debug:0});peer=p;
 connectionTimer=setTimeout(()=>{if(peer===p&&!p.open){leave(false);$('entryerror').textContent='Could not reach the multiplayer service. Please try again.'}},19000);
 p.on('open',()=>{if(!active||peer!==p)return;clearTimeout(connectionTimer);signalReady=true;busy(false);$('welcome').hidden=true;$('room').hidden=false;$('dock').hidden=false;render();if(!host)join()});
-p.on('connection',c=>{if(!host||!active){c.on('open',()=>{c.send({v:2,type:'denied',reason:'Room is not available.'});c.close()});return}const m=c.metadata||{};const same=m.session===guestSession;if(m.protocol!==2||!(/^[a-f0-9]{32}$/.test(m.session||''))||(guestSession&&!same)||(conn?.open&&stamp()-lastSeen<17000)){c.on('open',()=>{c.send({v:2,type:'denied',reason:guestSession?'Room is full. Only the original partner can reconnect.':'Update both browsers and rejoin.'});setTimeout(()=>c.close(),200)});return}partner=String(m.name||'Sweetheart').slice(0,24);guestSession=m.session;bind(c)});
+p.on('connection',c=>{if(!host||!active){c.on('open',()=>{c.send({v:2,type:'denied',reason:'Room is not available.'});c.close()});return}const m=c.metadata||{};const same=m.session===guestSession;if(m.protocol!==2||!(/^[a-f0-9]{32}$/.test(m.session||''))||(guestSession&&!same)||(conn?.open&&stamp()-lastSeen<17000)){c.on('open',()=>{c.send({v:2,type:'denied',reason:guestSession?'Room is full. Only the original partner can reconnect.':'Update both browsers and rejoin.'});setTimeout(()=>c.close(),200)});return}partner=String(m.name||'Sweetheart').slice(0,24);guestSession=m.session;incomingAttemptAt=stamp();connectionIssue='';bind(c);presence()});
 p.on('call',c=>{if(voice==='connecting'&&c.metadata?.id===voiceId&&c.peer===conn?.peer&&stream){wireCall(c);c.answer(stream)}else c.close()});
 p.on('disconnected',()=>{signalReady=false;presence();if(active&&navigator.onLine){setTimeout(()=>{if(peer===p&&p.disconnected&&!p.destroyed){try{p.reconnect()}catch{}}},2500)}});
-p.on('error',e=>{if(!active||peer!==p)return;if(e.type==='peer-unavailable'&&!host){connecting=false;clearTimeout(connectionTimer);toast('Host not found yet. Check your code and keep the host page open.');scheduleJoin()}else if(e.type==='unavailable-id'){toast('This room code is already in use. Leave and make another room.')}else{toast('Connection issue. Try changing Wi-Fi or mobile data.');if(!host)scheduleJoin()}});
+p.on('error',e=>{
+ if(!active||peer!==p)return;
+ if(e.type==='peer-unavailable'&&!host){
+  connecting=false;clearTimeout(connectionTimer);
+  connectionIssue='Room not found yet. Check the code and ask your partner to keep their room open.';
+  toast('Room not found yet. Checking again…');scheduleJoin();
+ }else if(e.type==='unavailable-id'){
+  connectionIssue='This room code is already taken. Leave and create a fresh room.';
+  toast(connectionIssue);
+ }else{
+  connectionIssue='Cannot reach the multiplayer service. Try switching Wi-Fi/mobile data.';
+  toast('Network connection issue. See connection help.');
+  if(!host){connecting=false;scheduleJoin()}
+ }
+ presence();
+});
 }
-function join(){if(!active||host||connecting||conn?.open||blocked||!peer?.open||!navigator.onLine)return;connecting=true;joinCount++;const c=peer.connect('love-arcade-v2-'+room,{reliable:true,metadata:{protocol:2,session,name}});bind(c);clearTimeout(connectionTimer);connectionTimer=setTimeout(()=>{if(conn===c&&!connected){connecting=false;c.close();scheduleJoin()}},14000)}
-function scheduleJoin(){if(!host&&active&&!blocked&&joinCount<5){clearTimeout(retryTimer);retryTimer=setTimeout(join,3500)}}
-function bind(c){if(conn&&conn!==c)conn.close();conn=c;connected=false;c.on('open',()=>{if(!active||conn!==c)return;lastSeen=stamp();connecting=false;clearTimeout(connectionTimer);if(host){connected=true;send({type:'welcome',name,state:viewForSeat(S,1),messages:messages.slice(-80)});toast(partner+' joined your room.');addSystem(partner+' joined the room.')}send({type:'ping',away:document.hidden});resendPendingMessages();render()});c.on('data',d=>{if(!active||conn!==c||!d||d.v!==2||typeof d.type!=='string')return;try{if(JSON.stringify(d).length>180000)return}catch{return}lastSeen=stamp();receive(d)});c.on('close',()=>{if(conn!==c||!active)return;conn=null;connected=false;connecting=false;stopVoice(false);addSystem(partner+' went offline.');presence();scheduleJoin()});c.on('error',()=>{if(conn!==c)return;conn=null;connected=false;connecting=false;stopVoice(false);presence();scheduleJoin()})}
+function join(){
+ if(!active||host||connecting||conn?.open||blocked||!peer?.open||!navigator.onLine)return;
+ clearTimeout(retryTimer);retryTimer=null;
+ connecting=true;joinCount++;
+ const c=peer.connect('love-arcade-v2-'+room,{reliable:true,metadata:{protocol:2,session,name}});
+ bind(c);presence();
+ clearTimeout(connectionTimer);
+ connectionTimer=setTimeout(()=>{
+  if(conn!==c||connected||!active)return;
+  connecting=false;
+  connectionIssue='The direct connection timed out. Your networks may require a TURN relay; try changing Wi-Fi or mobile data.';
+  c.close();presence();scheduleJoin();
+ },14000);
+}
+function scheduleJoin(){
+ if(host||!active||blocked||conn?.open)return;
+ clearTimeout(retryTimer);
+ // Keep trying at a measured rate rather than stopping silently after five attempts.
+ const delay=Math.min(20000,3500+Math.max(0,joinCount-1)*1800);
+ retryTimer=setTimeout(()=>{retryTimer=null;join()},delay);
+}
+function bind(c){if(conn&&conn!==c)conn.close();conn=c;connected=false;c.on('open',()=>{if(!active||conn!==c)return;lastSeen=stamp();connecting=false;incomingAttemptAt=0;connectionIssue='';joinCount=0;clearTimeout(connectionTimer);clearTimeout(retryTimer);retryTimer=null;if(host){connected=true;send({type:'welcome',name,state:viewForSeat(S,1),messages:messages.slice(-80)});toast(partner+' joined your room.');addSystem(partner+' joined the room.')}send({type:'ping',away:document.hidden});resendPendingMessages();render()});c.on('data',d=>{if(!active||conn!==c||!d||d.v!==2||typeof d.type!=='string')return;try{if(JSON.stringify(d).length>180000)return}catch{return}lastSeen=stamp();receive(d)});c.on('close',()=>{if(conn!==c||!active)return;conn=null;connected=false;connecting=false;stopVoice(false);addSystem(partner+' went offline.');presence();scheduleJoin()});c.on('error',()=>{if(conn!==c)return;conn=null;connected=false;connecting=false;stopVoice(false);presence();scheduleJoin()})}
 function validState(s){return s&&Number.isInteger(s.rev)&&Number.isInteger(s.epoch)&&Number.isInteger(s.round)&&(s.game===null||Object.hasOwn(GAMES,s.game))&&[0,1].includes(s.turn)&&Array.isArray(s.answers)&&Array.isArray(s.ready)&&Array.isArray(s.board)&&Array.isArray(s.found)}
-function receive(d){if(d.type==='welcome'&&!host&&validState(d.state)){connected=true;blocked=false;joinCount=0;S=d.state;if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});partner=String(d.name||'Sweetheart').slice(0,24);if(Array.isArray(d.messages)){messages=d.messages.filter(m=>m&&typeof m.text==='string'&&typeof m.id==='string').slice(-80);messageIds=new Set(messages.map(m=>m.id))}toast('Your partner is here!');render();return}
-if(d.type==='denied'&&!host){blocked=true;connecting=false;toast(String(d.reason||'Room unavailable').slice(0,180));conn?.close();presence();return}
+function receive(d){if(d.type==='welcome'&&!host&&validState(d.state)){connected=true;blocked=false;joinCount=0;connectionIssue='';clearTimeout(retryTimer);retryTimer=null;S=d.state;if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});partner=String(d.name||'Sweetheart').slice(0,24);if(Array.isArray(d.messages)){messages=d.messages.filter(m=>m&&typeof m.text==='string'&&typeof m.id==='string').slice(-80);messageIds=new Set(messages.map(m=>m.id))}toast('Your partner is here!');render();return}
+if(d.type==='denied'&&!host){blocked=true;connecting=false;connectionIssue=String(d.reason||'Room unavailable').slice(0,180);toast(connectionIssue);conn?.close();presence();return}
 if(!connected)return;
 if(d.type==='watch-reaction'){
  if(S.watch?.open&&d.epoch===S.epoch&&REACTIONS.includes(d.emoji)&&stamp()-lastRemoteReaction>230){
@@ -237,7 +272,15 @@ function syncJourney(){
  const guestWaiting=!host&&next==='waiting';
  $('waitingTitle').innerHTML=guestWaiting?'Finding <em>your person.</em>':'Good things are <em>better together.</em>';
  $('waitingDescription').textContent=guestWaiting?'We’re connecting you to your private room. Keep this page open for a moment.':'Your room is ready. Invite your favorite person and we’ll bring you into your private game lounge as soon as they join.';
- $('waitingHint').textContent=guestWaiting?'Connecting to your partner…':'Waiting for player two to arrive…';
+ const found=host&&incomingAttemptAt&&stamp()-incomingAttemptAt<26000;
+ const waited=stamp()-roomOpenedAt>24000;
+ let hint=guestWaiting
+  ?connectionIssue||(connecting?'Finding your partner… Attempt '+joinCount:waited?'Still trying. Check your code or change networks.':'Connecting to your partner…')
+  :found?'Your partner reached the room. Trying to establish the connection…':
+   connectionIssue||'Waiting for player two to arrive…';
+ $('waitingHint').textContent=hint;
+ $('retryConnection').hidden=host||next!=='waiting'||blocked||!peer?.open;
+ if(waited&&next==='waiting'&&!$('connectionHelp').open)$('connectionHelp').open=true;
  $('waitingCodeGroup').hidden=guestWaiting;
  $('waitingShare').hidden=guestWaiting;
  if(next==='activity'&&!watching)$('activityTitle').textContent=GAMES[S.game]?.title||'Your moment';
@@ -350,7 +393,7 @@ function resendPendingMessages(){
  send({type:'message',id:m.id,text:m.text});
 }
 async function copyInvite(){const link=location.origin+location.pathname+'#room='+room;try{await navigator.clipboard.writeText(link);toast('Invite copied. Send it to your partner!')}catch{modal('Copy this invite',link)}}
-function leave(sendNotice=true){if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';localView='home';lastSharedContext='';dockExpanded=false;setDockExpanded(false);$('privateMenu').open=false;$('welcome').hidden=false;$('room').hidden=true;$('room').dataset.stage='waiting';$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
+function leave(sendNotice=true){if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';connectionIssue='';incomingAttemptAt=0;roomOpenedAt=0;localView='home';lastSharedContext='';dockExpanded=false;setDockExpanded(false);$('privateMenu').open=false;$('welcome').hidden=false;$('room').hidden=true;$('room').dataset.stage='waiting';$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
 function refreshVoice(){const states={off:'Voice is off',request:'Requesting microphone…',outgoing:'Ringing your partner…',incoming:'Incoming voice call',connecting:'Connecting voice…',connected:micMuted?'Your mic is muted':'Voice connected'};$('voicestate').textContent=states[voice];$('voicedot').className='voice-dot'+(voice==='connected'?' live':'');$('voicedetail').textContent=voice==='connected'?partnerMicMuted?'Partner mic muted':playbackBlocked?'Tap Sound to enable playback':'Live, private audio':voice==='off'?'Stay close, even from afar':'Microphone consent required';$('callbanner').hidden=voice!=='incoming';$('callinvite').textContent=partner+' wants to talk 💗';$('call').disabled=!online()||voice!=='off';$('hangup').disabled=voice==='off';$('mic').disabled=!(stream&&stream.getAudioTracks().some(track=>track.readyState==='live'));$('speaker').disabled=voice!=='connected';$('mic').setAttribute('aria-pressed',String(micMuted));$('speaker').setAttribute('aria-pressed',String(soundMuted));$('mic').innerHTML=svg(micMuted?'micoff':'mic')+'<span>'+(micMuted?'Unmute':'Mute')+'</span>';$('speaker').innerHTML=svg(soundMuted?'voloff':'volume')+'<span>'+(soundMuted?'Unmute':'Sound')+'</span>';
  $('dockTraySignal').className='dock-tray-signal'+(voice==='connected'?' live':voice!=='off'?' connecting':'');
  $('dockToggle').title=voice==='connected'?'Voice connected · '+(dockExpanded?'hide controls':'show controls'):(dockExpanded?'Hide voice and chat controls':'Show voice and chat controls')
@@ -391,6 +434,13 @@ if(inviteParam){
  }
 }
 $('create').onclick=()=>create(true);$('join').onclick=()=>create(false);$('roominput').onkeydown=e=>{if(e.key==='Enter')create(false)};$('invite').onclick=copyInvite;$('journeyInvite').onclick=shareRoom;$('waitingShare').onclick=shareRoom;$('waitingCopy').onclick=copyInvite;$('waitingLeave').onclick=()=>$('leave').click();
+$('retryConnection').onclick=()=>{
+ if(!active||host||blocked)return;
+ clearTimeout(retryTimer);retryTimer=null;clearTimeout(connectionTimer);
+ if(conn&&!conn.open){const old=conn;conn=null;old.close()}
+ connecting=false;joinCount=0;connectionIssue='';
+ join();presence();
+};
 $('leave').onclick=()=>modal('Leave this room?',host?'You are hosting. Leaving ends this room for both players, including the call and chat.':'Your chat and game progress will clear from this device.',()=>leave(true),'Leave room');
 $('help').onclick=()=>modal('How to play','Create a room and share the code with your partner. Both players must keep this page open. There are six games, private session chat, and optional voice calling.\n\nYour partner must accept each voice call and give microphone permission. Rooms and chats are not saved. Your voice is never recorded by this app.\n\nA peer-to-peer connection may fail on restrictive Wi-Fi or mobile networks. Try another network if it does.');
 $('rules').onclick=()=>modal(GAMES[S.game]?.title||'Game rules',({truth:'Choose Truth or Dare on your turn. Complete the task, then your partner approves or asks you to retry. Only approval changes turns. Skip freely.',quiz:'Both write answers privately and reveal together. Both must tap ready for the next round.',rather:'Both choose one of two romantic options secretly. Reveal your choices together.',notes:'Both write secret love notes that reveal together once submitted.',match:'Flip two cards on your turn. Matched pairs stay revealed; if they do not match, your partner takes over.',heartsync:'Pick a mood together. Answer ten questions secretly. Predict each other’s choices, then reveal your hearts. Both players continue each round.',stars:'Choose a shared sky mode: Same Wish, Find My Star, Feel My Heart or Our Constellation. Complete five rounds. Secret choices only reveal when both players finish. Save your couple constellation at the end.'})[S.game]||'Pick a game.');
@@ -492,4 +542,4 @@ $('call').onclick=startVoice;$('hangup').onclick=()=>stopVoice(true);$('acceptca
 $('dialogclose').onclick=()=>$('dialog').close();window.addEventListener('offline',()=>{stopVoice(true);presence()});window.addEventListener('online',()=>{if(!host){connecting=false;joinCount=0;join()}presence()});document.addEventListener('visibilitychange',()=>{if(active){send({type:'ping',away:document.hidden});if(!document.hidden){send({type:'sync'});if(!host&&!conn?.open){connecting=false;join()}}presence()}});
 window.addEventListener('pagehide',e=>{stopVoice(true);if(!e.persisted)peer?.destroy()});
 window.addEventListener('pageshow',e=>{if(e.persisted&&active){if(peer?.disconnected&&!peer.destroyed){try{peer.reconnect()}catch{}}if(!host&&!conn?.open){connecting=false;join()}send({type:'sync'});presence()}});window.addEventListener('beforeunload',e=>{if(host&&active&&connected){e.preventDefault();e.returnValue=''}});
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden,sentAt:stamp()});presence();if(!host&&!conn?.open&&!connecting&&joinCount<5&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);setInterval(updateDrawClock,1000);watchController.init();refreshVoice();
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('chatpanel').hidden)chatOpen(false)});setInterval(()=>{if(active){send({type:'ping',away:document.hidden,sentAt:stamp()});presence();if(!host&&!conn?.open&&!connecting&&!retryTimer&&!blocked)join()}},4000);setInterval(chessClockUpdate,1000);setInterval(updateDrawClock,1000);watchController.init();refreshVoice();
