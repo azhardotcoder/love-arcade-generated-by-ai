@@ -129,6 +129,7 @@ export function createCloudClient({onEvent,onStatus,onError,base=DEFAULT_ARCADE_
           try{ws.send(JSON.stringify({type:'ping'}))}catch{}
         },12000);
       }
+      if(payload.type==='pending')clearTimeout(handshakeTimeout); // Code-only guests may wait for deliberate host approval.
       if(payload.type==='pong')heartbeatDeadline=Date.now();
       if(payload.type==='error'&&payload.code==='DENIED'){
         closed=true;clearTimeout(retry);
