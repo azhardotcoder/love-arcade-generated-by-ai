@@ -158,7 +158,214 @@ function updateDrawClock(){
 function busy(v){$('create').disabled=v;$('join').disabled=v;$('create').textContent=v?'Connecting...':'Create our room →'}
 function codegen(){return String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0')}
 function extractCode(value){try{if(value.includes('://')){const u=new URL(value);value=new URLSearchParams(u.hash.slice(1)).get('room')||u.searchParams.get('room')||''}}catch{}return value.trim().replace(/[\s-]/g,'').toUpperCase()}
-function create(isHost){if(active)return;if(!window.Peer){$('entryerror').textContent='The connection library has not loaded. Check your connection and refresh.';return}name=$('nickname').value.trim().slice(0,24)||'Sweetheart';try{localStorage.setItem('la-name',name)}catch{}room=isHost?codegen():extractCode($('roominput').value);if(!/^\d{6}$/.test(room)){$('entryerror').textContent='Enter a 6-digit room code or paste the latest invite link.';return}
+
+function storedCloudRoom(){
+ try{
+  const data=JSON.parse(sessionStorage.getItem(cloudStoreKey)||'null');
+  return data&&/^\d{6}$/.test(data.code)&&/^[a-f0-9]{64}$/.test(data.token||'')&&
+    ['host','guest'].includes(data.role)?data:null;
+ }catch{return null}
+}
+function saveCloudRoom(){
+ if(!cloudMode||!room||!cloudRoomToken)return;
+ try{sessionStorage.setItem(cloudStoreKey,JSON.stringify({
+  code:room,role:host?'host':'guest',token:cloudRoomToken,
+  invite:host?cloudInviteToken:'',name
+ }))}catch{}
+}
+function cloudInviteLink(){
+ if(!cloudInviteToken)throw new Error('The private invitation is not available. Create a new room.');
+ return inviteLink(location.origin,location.pathname,room,cloudInviteToken);
+}
+function initCloudVoicePeer(){
+ if(!cloudMode||peer||!window.Peer)return;
+ try{
+  const p=new Peer(undefined,{debug:0});peer=p;
+  p.on('open',id=>{
+   if(p!==peer||!active)return;
+   signalReady=true;
+   if(cloud?.isReady()&&cloudPartnerOnline)send({type:'voice-peer',id});
+   refreshVoice();
+  });
+  p.on('call',c=>{
+   if(voice==='connecting'&&c.metadata?.id===voiceId&&c.peer===cloudRemoteVoiceId&&stream){
+    wireCall(c);c.answer(stream);
+   }else c.close();
+  });
+  p.on('disconnected',()=>{
+   signalReady=false;
+   if(p===peer&&active&&navigator.onLine){
+    setTimeout(()=>{if(p===peer&&p.disconnected&&!p.destroyed){try{p.reconnect()}catch{}}},2500);
+   }
+   refreshVoice();
+  });
+  p.on('error',()=>{signalReady=false;refreshVoice()});
+ }catch{signalReady=false}
+}
+function handleCloudState(state){
+ if(!validState(state)||state.rev<S.rev&&state.epoch===S.epoch)return;
+ const gained=state.hearts>S.hearts;
+ S=state;
+ if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});
+ if(S.game==='chess')chessSelection=null;
+ renderGame();presence();
+ if(gained)celebrate();
+ clearTimeout(hideTimer);hideTimer=null;
+ // Host remains responsible only for timed visual cleanup.
+ // The actual hide action and game transition are verified by Cloudflare.
+ if(host&&S.game==='match'&&S.open.length===2){
+  const rev=S.rev;
+  hideTimer=setTimeout(()=>{
+   if(host&&online()&&S.game==='match'&&S.rev===rev)
+    act({type:'hide',rev});
+  },1400);
+ }
+}
+function onCloudEvent(d){
+ if(!active)return;
+ if(d.type==='welcome'&&validState(d.state)){
+  connected=true;blocked=false;closed=false;cloudApproved=true;connectionIssue='';
+  lastSeen=stamp();cloudRoomToken=cloud.getToken()||cloudRoomToken;
+  saveCloudRoom();
+  partner=String(d.partnerName||'Your partner').slice(0,24);
+  S=d.state; if(S.game==='chess'&&!ChessCtor)loadChess().catch(()=>{});
+  messages=Array.isArray(d.messages)?
+   d.messages.filter(m=>m&&typeof m.text==='string'&&typeof m.id==='string').slice(-80)
+    .map(m=>({id:m.id,text:m.text,who:m.seat,time:m.time||stamp(),delivered:true})):[];
+  messageIds=new Set(messages.map(m=>m.id));
+  incomingAttemptAt=0;busy(false);
+  initCloudVoicePeer();
+  resendPendingMessages();
+  render();return;
+ }
+ if(d.type==='presence'){
+  const previouslyOnline=cloudPartnerOnline;
+  cloudPartnerOnline=!!d.partnerOnline;
+  if(d.partnerName)partner=String(d.partnerName).slice(0,24);
+  if(cloudPartnerOnline)guestSession='cloud-guest';
+  else if(host)guestSession='';
+  if(cloudPartnerOnline&&!previouslyOnline){
+   if(peer?.open&&peer.id)send({type:'voice-peer',id:peer.id});
+   toast(partner+' is here!');addSystem(partner+' joined the room.');
+  }
+  if(!cloudPartnerOnline&&previouslyOnline){
+   cloudRemoteVoiceId='';stopVoice(false);
+   addSystem(partner+' went offline.');
+  }
+  if(connected)render();
+  return;
+ }
+ if(d.type==='state'){handleCloudState(d.state);return}
+ if(d.type==='chat'){
+  if(d.message&&typeof d.message.id==='string')
+   receive({type:'message',id:d.message.id,text:d.message.text,time:d.message.time});
+  return;
+ }
+ if(d.type==='chat-ack'){receive({type:'message-ack',id:d.id});return}
+ if(d.type==='signal'){
+  const payload=d.payload&&typeof d.payload==='object'?d.payload:{};
+  if(d.event==='voice-peer'){
+   if(typeof payload.id==='string'&&payload.id.length<=150){
+    cloudRemoteVoiceId=payload.id;refreshVoice();
+    // Both ends discover each other's media PeerJS IDs after connecting.
+    if(peer?.open&&peer.id&&cloudPartnerOnline&&!cloudVoiceIDSent){
+     cloudVoiceIDSent=true;send({type:'voice-peer',id:peer.id});
+    }
+   }
+  }else receive({...payload,type:d.event});
+  return;
+ }
+ if(d.type==='pending'){
+  connectionIssue='Waiting for the room owner to approve your request…';
+  presence();return;
+ }
+ if(d.type==='join-request'&&host&&typeof d.requestId==='string'){
+  const requestId=d.requestId,visitor=String(d.name||'Someone').slice(0,24);
+  modal('Allow '+visitor+' to join?', 'Someone entered your six-digit room code. Only approve if this is the person you invited.',
+   ()=>cloud?.send({type:'approve',requestId}),'Allow player');
+  return;
+ }
+ if(d.type==='error'){
+  connectionIssue=String(d.message||'Unable to connect to this room.').slice(0,160);
+  if(d.code==='DENIED'){
+   blocked=true;connected=false;cloudPartnerOnline=false;cloud?.stop();
+  }
+  toast(connectionIssue);presence();return;
+ }
+ if(d.type==='room-closed'){
+  closed=true;blocked=true;connected=false;cloudPartnerOnline=false;
+  connectionIssue='The room owner closed this room. Leave and create a new one.';
+  stopVoice(false);toast(connectionIssue);presence();
+ }
+}
+let cloudVoiceIDSent=false;
+function cloudClient(){
+ if(!cloud)cloud=createCloudClient({
+  base:cloudBackend,
+  onEvent:onCloudEvent,
+  onError:text=>{connectionIssue=text;if(active)presence()},
+  onStatus:(status,detail)=>{
+   if(!active)return;
+   if(status==='disconnected'){
+    connected=false;cloudPartnerOnline=false;cloudVoiceIDSent=false;
+    if(voice!=='off')stopVoice(false);
+    connectionIssue='Reconnecting to your private room automatically…';
+   }else if(status==='reconnecting')connectionIssue='Reconnecting to the room server…';
+   else if(status==='connecting')connectionIssue='Connecting to the room server…';
+   if(status!=='authorized')presence();
+  }
+ });
+ return cloud;
+}
+function cloudEnter(role,code,token,invite=''){
+ host=role==='host';room=code;active=true;connected=false;cloudPartnerOnline=false;
+ closed=false;blocked=false;cloudApproved=false;cloudRemoteVoiceId='';cloudVoiceIDSent=false;
+ localView='home';lastSharedContext='';dockExpanded=false;presenceAway=false;
+ guestSession='';partner='Your partner';incomingAttemptAt=0;roomOpenedAt=stamp();
+ S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;
+ connectionIssue='Connecting to your private room…';helpAutoShown=false;
+ $('connectionHelp').open=false;$('entryerror').textContent='';
+ cloudRoomToken=token;cloudInviteToken=host?invite:'';
+ const transport=cloudClient();
+ conn={
+  get open(){return transport.isReady()},
+  get peer(){return cloudRemoteVoiceId},
+  send(){}
+ };
+ $('welcome').hidden=true;$('room').hidden=false;$('dock').hidden=false;
+ busy(false);render();
+ saveCloudRoom();
+ transport.start({role,code,token,name});
+}
+async function cloudCreate(isHost){
+ if(active)return;
+ name=$('nickname').value.trim().slice(0,24)||'Sweetheart';
+ try{localStorage.setItem('la-name',name)}catch{}
+ if(isHost){
+  busy(true);$('entryerror').textContent='';
+  try{
+   const result=await createCloudRoom(name,cloudBackend);
+   cloudEnter('host',result.code,result.hostToken,result.inviteToken);
+  }catch(e){
+   busy(false);
+   $('entryerror').textContent=e?.name==='AbortError'?
+    'The room server timed out. Check your connection and try again.':
+    'Could not create a room: '+String(e?.message||'Please try again.');
+  }
+  return;
+ }
+ const selected=readInvite($('roominput').value);
+ if(!selected.code){
+  $('entryerror').textContent='Enter a six-digit room code or paste your private invite link.';return;
+ }
+ const inAddress=readInvite(location.href);
+ const saved=storedCloudRoom();
+ const token=saved?.role==='guest'&&saved.code===selected.code?
+  saved.token:selected.invite||(inAddress.code===selected.code?inAddress.invite:'');
+ cloudEnter('guest',selected.code,token);
+}
+
+function create(isHost){if(active)return;if(cloudMode){void cloudCreate(isHost);return}if(!window.Peer){$('entryerror').textContent='The connection library has not loaded. Check your connection and refresh.';return}name=$('nickname').value.trim().slice(0,24)||'Sweetheart';try{localStorage.setItem('la-name',name)}catch{}room=isHost?codegen():extractCode($('roominput').value);if(!/^\d{6}$/.test(room)){$('entryerror').textContent='Enter a 6-digit room code or paste the latest invite link.';return}
 host=isHost;active=true;localView='home';lastSharedContext='';dockExpanded=false;connected=false;connecting=false;blocked=false;closed=false;partner='Your partner';guestSession='';joinCount=0;connectionIssue='';incomingAttemptAt=0;roomOpenedAt=stamp();helpAutoShown=false;$('connectionHelp').open=false;S=fresh();messages=[];messageIds=new Set();drafts={};unread=0;signalReady=false;busy(true);$('entryerror').textContent='';
 const p=new Peer(host?'love-arcade-v2-'+room:undefined,{debug:0});peer=p;
 connectionTimer=setTimeout(()=>{if(peer===p&&!p.open){leave(false);$('entryerror').textContent='Could not reach the multiplayer service. Please try again.'}},19000);
