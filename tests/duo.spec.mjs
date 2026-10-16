@@ -354,3 +354,55 @@ test('private room shows just Games, Watch Lounge, and chat; tray slides from ri
  expect(sizes.scroll).toBeLessThanOrEqual(sizes.width+2);
  await host.close();await guest.close();
 });
+
+
+test('mobile game is immersive and voice/chat tray collapses on both players',async({context})=>{
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'text/javascript',body:peerStub}));
+ const {host,guest}=await connectPair(context,'Taylor','Riley');
+ await host.locator('#homeGames').click();
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','games');
+ await host.locator('[data-game=escape]').click();
+ for(const page of [host,guest]){
+  await expect(page.locator('#room')).toHaveAttribute('data-stage','activity',{timeout:12000});
+  await expect(page.locator('#room')).toHaveAttribute('data-pack-game','true');
+  await expect(page.locator('#privateHeader')).toBeHidden();
+  await expect(page.locator('.players')).toBeHidden();
+  await expect(page.locator('#activityHeading')).toBeHidden();
+  await expect(page.locator('#gameStatus')).toBeHidden();
+  await expect(page.locator('#roomGuide')).toBeHidden();
+  await expect(page.locator('#game .gamehead #back')).toBeVisible();
+  await expect(page.locator('#game .gamehead #rules')).toBeVisible();
+  await expect(page.locator('#gamebody .escape-scene')).toBeVisible();
+  await expect(page.locator('#dock')).toHaveAttribute('data-collapsed','true');
+  await expect(page.locator('#dockToggle')).toBeVisible();
+  await expect(page.locator('#dockPanel')).toHaveJSProperty('inert',true);
+  const positions=await page.evaluate(()=>{
+   const rect=document.querySelector('#gamebody .couple-surface').getBoundingClientRect();
+   return {surfaceTop:rect.top,scrollWidth:document.documentElement.scrollWidth,viewportWidth:innerWidth};
+  });
+  expect(positions.surfaceTop).toBeLessThan(240);
+  expect(positions.scrollWidth).toBeLessThanOrEqual(positions.viewportWidth+2);
+ }
+ await host.locator('#dockToggle').click();
+ await expect(host.locator('#dock')).toHaveAttribute('data-collapsed','false');
+ await expect(host.locator('#dockPanel')).toHaveJSProperty('inert',false);
+ await expect(host.locator('#call')).toBeVisible();
+ const tray=await host.evaluate(()=>{
+  const p=document.querySelector('#dockPanel');
+  const toggle=document.querySelector('#dockToggle');
+  const panelRect=p.getBoundingClientRect(),toggleRect=toggle.getBoundingClientRect();
+  return {left:panelRect.left,right:toggleRect.right,within:innerWidth,transition:getComputedStyle(p).transitionProperty};
+ });
+ expect(tray.left).toBeGreaterThanOrEqual(-2);
+ expect(tray.right).toBeLessThanOrEqual(tray.within+2);
+ expect(tray.transition).toContain('transform');
+ await host.locator('#dockToggle').click();
+ await expect(host.locator('#dock')).toHaveAttribute('data-collapsed','true');
+ await expect(host.locator('#dockPanel')).toHaveJSProperty('inert',true);
+ await host.locator('#back').click();
+ await expect(host.getByRole('dialog')).toBeVisible();
+ await host.getByRole('dialog').getByRole('button',{name:'Back to games'}).click();
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','games');
+ await expect(guest.locator('#room')).toHaveAttribute('data-stage','games');
+ await host.close();await guest.close();
+});
