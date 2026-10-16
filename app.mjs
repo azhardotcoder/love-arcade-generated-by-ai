@@ -7,23 +7,44 @@ import {renderBond,constellationSvg} from './bond-ui.mjs';
 import {renderCouple} from './couples-ui.mjs';
 import {createWatchController} from './watch-client.mjs';
 import {REACTIONS} from './watch.mjs';
+import {createCloudClient,createCloudRoom,getBackendURL,readInvite,inviteLink} from './cloud-client.mjs';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const svg=n=>'<svg><use href="#icon-'+n+'"/></svg>';
 const uid=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
 const stamp=()=>Date.now();
+const query=new URLSearchParams(location.search);
+const cloudMode=query.get('transport')==='cloudflare'||(query.get('transport')!=='peer'&&!['localhost','127.0.0.1'].includes(location.hostname));
+const cloudStoreKey='la-cloud-room-v1';
+const cloudBackend=getBackendURL(location);
 const session=(()=>{try{let s=sessionStorage.getItem('love-arcade-session');if(!s){s=uid();sessionStorage.setItem('love-arcade-session',s)}return s}catch{return uid()}})();
 let peer=null,conn=null,host=false,active=false,connected=false,room='',name='',partner='Your partner',guestSession='',lastSeen=0,presenceAway=false,joinCount=0,connecting=false,blocked=false,signalReady=false,S=fresh();
 let lastCelebrateEpoch='',lastExperienceSignature='',messages=[],messageIds=new Set(),unread=0,drafts={},hideTimer=null,retryTimer=null,connectionTimer=null,pingTimer=null,toastTimer=null,chatTypingTimer=null,lastTyping=0,closed=false;
 let localView='home',lastSharedContext='',dockExpanded=false,chatReturnTarget=null;
 let connectionIssue='',incomingAttemptAt=0,roomOpenedAt=0,helpAutoShown=false;
+let cloud=null,cloudPartnerOnline=false,cloudInviteToken='',cloudRoomToken='',cloudRemoteVoiceId='',cloudApproved=false;
 let call=null,stream=null,voice='off',voiceId='',voiceToken=0,micMuted=false,soundMuted=false,partnerMicMuted=false,playbackBlocked=false,callStarted=0,callTimeout=null,voiceClock=null;
 const audio=$('remoteaudio');
 let ChessCtor=null,chessSelection=null,chessPromotion=null,chessFlip=false,chessLoading=null,chessLastEpoch=-1,chessLastWhite=-1,hostClockOffset=0,lastRemoteReaction=0;
 const watchController=createWatchController({state:()=>S,seat:()=>host?0:1,online:()=>online(),hostTime:()=>stamp()+(host?0:hostClockOffset),act:a=>act(a),send:d=>send(d),toast:t=>toast(t)});
 let drawActive=false,drawPoints=[],drawColor='#37253e',drawWidth=6,drawTimer=null,drawLastMove=0;
-const online=()=>active&&connected&&conn?.open&&navigator.onLine&&stamp()-lastSeen<17000&&!closed;
-const send=d=>{try{if(conn?.open){conn.send({v:2,...d});return true}}catch{}return false};
+const online=()=>active&&connected&&conn?.open&&navigator.onLine&&!closed&&
+ (cloudMode?cloudPartnerOnline&&cloud?.isReady():stamp()-lastSeen<17000);
+const send=d=>{
+ if(cloudMode){
+  if(!cloud?.isReady())return false;
+  if(d.type==='action')return cloud.send({type:'action',action:d.action});
+  if(d.type==='message')return cloud.send({type:'chat',id:d.id,text:d.text});
+  if(d.type==='ping')return cloud.send({type:'ping'});
+  if(d.type==='sync'||d.type==='message-ack')return true;
+  if(d.type==='left')return cloud.send({type:'leave'});
+  if(['watch-reaction','draw-preview','typing','voice-invite','voice-accept','voice-end','voice-decline','voice-mute','voice-peer'].includes(d.type))
+   return cloud.send({type:'signal',event:d.type,payload:d});
+  return false;
+ }
+ try{if(conn?.open){conn.send({v:2,...d});return true}}catch{}
+ return false;
+};
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3600)}
 function modal(title,text,confirm,label='Continue'){$('dialogtitle').textContent=title;$('dialogbody').textContent=text;const a=$('dialogactions');a.replaceChildren();if(confirm){const b=document.createElement('button');b.className='secondary';b.textContent='Cancel';b.onclick=()=>$('dialog').close();a.appendChild(b)}const y=document.createElement('button');y.className='primary';y.textContent=confirm?label:'Got it';y.onclick=()=>{$('dialog').close();confirm?.()};a.appendChild(y);$('dialog').showModal()}
 async function loadChess(){
