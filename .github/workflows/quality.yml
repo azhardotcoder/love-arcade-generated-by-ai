@@ -62,3 +62,18 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+  cloudflare-worker-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install application dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Validate Cloudflare Durable Objects configuration and bundle without deploying
+        run: npx --yes wrangler@4 deploy --config wrangler.jsonc --dry-run --outdir /tmp/love-arcade-worker
