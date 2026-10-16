@@ -310,3 +310,47 @@ test('Watch Together: malformed YouTube URLs are rejected without changing the q
  await expect(guest.locator('#toast')).toContainText('valid YouTube');
  await host.close();await guest.close();
 });
+
+
+test('private room shows just Games, Watch Lounge, and chat; tray slides from right',async({context})=>{
+ await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'text/javascript',body:peerStub}));
+ const {host,guest}=await connectPair(context,'Mira','Ari');
+ await expect(host.locator('#privateHome')).toBeVisible();
+ await expect(guest.locator('#privateHome')).toBeVisible();
+ await expect(host.locator('#homeGames')).toBeVisible();
+ await expect(host.locator('#homeWatch')).toBeVisible();
+ await expect(host.locator('#homeChat')).toBeVisible();
+ await expect(host.locator('#lobby')).toBeHidden();
+ await expect(host.locator('#privateHeader')).toBeVisible();
+ await expect(host.locator('.roomhead')).toBeHidden();
+ await expect(host.locator('.journey-nav')).toBeHidden();
+ await expect(host.locator('#dock')).toHaveAttribute('data-collapsed','true');
+ await expect(host.locator('#dockToggle')).toHaveAttribute('aria-expanded','false');
+ const animation=await host.evaluate(()=>{
+  const panel=document.querySelector('#dockPanel');
+  return {transition:getComputedStyle(panel).transitionProperty,origin:getComputedStyle(document.querySelector('#dock')).right};
+ });
+ expect(animation.transition).toContain('transform');
+ expect(animation.origin).not.toBe('auto');
+ await host.locator('#dockToggle').click();
+ await expect(host.locator('#dock')).toHaveAttribute('data-collapsed','false');
+ await expect(host.locator('#dockToggle')).toHaveAttribute('aria-expanded','true');
+ await expect(host.locator('#call')).toBeVisible();
+ await host.locator('#dockToggle').click();
+ await expect(host.locator('#dock')).toHaveAttribute('data-collapsed','true');
+ await host.locator('#homeChat').click();
+ await expect(host.locator('#chatpanel')).toBeVisible();
+ await host.locator('#chatclose').click();
+ await expect(host.locator('#chatpanel')).toBeHidden();
+ await host.locator('#homeGames').click();
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','games');
+ await expect(host.locator('#lobby')).toBeVisible();
+ await expect(host.locator('#homeWatch')).toBeHidden();
+ await expect(guest.locator('#room')).toHaveAttribute('data-stage','home');
+ await host.locator('#libraryBack').click();
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','home');
+ await expect(host.locator('#privateHome')).toBeVisible();
+ const sizes=await host.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
+ expect(sizes.scroll).toBeLessThanOrEqual(sizes.width+2);
+ await host.close();await guest.close();
+});
