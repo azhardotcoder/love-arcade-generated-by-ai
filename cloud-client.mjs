@@ -60,11 +60,11 @@ export async function createCloudRoom(name,base=DEFAULT_ARCADE_BACKEND){
 
 export function createCloudClient({onEvent,onStatus,onError,base=DEFAULT_ARCADE_BACKEND}){
   let socket=null,credentials=null,generation=0,authorized=false,retry=null,heartbeat=null,
-    closed=true,attempt=0,heartbeatDeadline=0;
+    closed=true,attempt=0,heartbeatDeadline=0,lastPingSentAt=0;
   const notify=(kind,detail={})=>onStatus?.(kind,detail);
   const send=message=>{
     if(!socket||socket.readyState!==WebSocket.OPEN||!authorized)return false;
-    try{socket.send(JSON.stringify(message));return true}catch{return false}
+    try{if(message?.type==='ping')lastPingSentAt=Date.now();socket.send(JSON.stringify(message));return true}catch{return false}
   };
   const stopTimers=()=>{
     clearTimeout(retry);retry=null;
@@ -122,15 +122,20 @@ export function createCloudClient({onEvent,onStatus,onError,base=DEFAULT_ARCADE_
         notify('authorized',{seat:payload.seat});
         clearInterval(heartbeat);
         heartbeatDeadline=Date.now();
+        lastPingSentAt=Date.now();
+        try{ws.send(JSON.stringify({type:'ping'}))}catch{}
         heartbeat=setInterval(()=>{
           if(!authorized||ws.readyState!==WebSocket.OPEN)return;
           // A quiet connection still needs timely network failure detection.
           if(Date.now()-heartbeatDeadline>38000){ws.close();return}
-          try{ws.send(JSON.stringify({type:'ping'}))}catch{}
+          try{lastPingSentAt=Date.now();ws.send(JSON.stringify({type:'ping'}))}catch{}
         },12000);
       }
       if(payload.type==='pending')clearTimeout(handshakeTimeout); // Code-only guests may wait for deliberate host approval.
-      if(payload.type==='pong')heartbeatDeadline=Date.now();
+      if(payload.type==='pong'){
+        const receivedAt=Date.now();heartbeatDeadline=receivedAt;
+        payload={...payload,clientSentAt:lastPingSentAt,clientReceivedAt:receivedAt};
+      }
       if(payload.type==='error'&&payload.code==='DENIED'){
         closed=true;clearTimeout(retry);
         onError?.(payload.message||'The room denied this connection.');
