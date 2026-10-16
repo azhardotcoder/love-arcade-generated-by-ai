@@ -448,7 +448,7 @@ if(d.type.startsWith('voice-'))receiveVoice(d);
 function trimMessages(){messages=messages.slice(-100);messageIds=new Set(messages.map(x=>x.id))}
 function addSystem(text){messages.push({id:uid(),who:-1,text,time:stamp()});trimMessages();drawChat()}
 function apply(action,seat){const next=reduce(S,action,seat);if(!next)return;const gained=next.hearts>S.hearts;S=next;send({type:'snapshot',state:viewForSeat(S,1)});if(S.game==='chess')chessSelection=null;renderGame();presence();if(gained)celebrate();clearTimeout(hideTimer);hideTimer=null;if(S.game==='match'&&S.open.length===2){const rev=S.rev;hideTimer=setTimeout(()=>{if(host&&online())apply({type:'hide',epoch:S.epoch,round:S.round,rev},0)},1400)}}
-function act(a){if(!online()){toast('Wait until your partner is connected.');return}const data={epoch:S.epoch,round:S.round,...a};if(host)apply(data,0);else send({type:'action',action:data})}
+function act(a){if(!online()){toast('Wait until your partner is connected.');return}const data={epoch:S.epoch,round:S.round,...a};if(cloudMode)send({type:'action',action:data});else if(host)apply(data,0);else send({type:'action',action:data})}
 
 /**
  * One connected peer session, three visually distinct screens.
@@ -507,7 +507,7 @@ function syncJourney(){
   :found?'Your partner reached the room. Trying to establish the connection…':
    connectionIssue||'Waiting for player two to arrive…';
  $('waitingHint').textContent=hint;
- $('retryConnection').hidden=host||next!=='waiting'||blocked||!peer?.open;
+ $('retryConnection').hidden=host||next!=='waiting'||blocked||(!cloudMode&&!peer?.open);
  if(waited&&next==='waiting'&&!helpAutoShown){$('connectionHelp').open=true;helpAutoShown=true}
  $('waitingCodeGroup').hidden=guestWaiting;
  $('waitingShare').hidden=guestWaiting;
@@ -528,7 +528,7 @@ function showPrivateHome(){
 }
 
 async function shareRoom(){
- const link=location.origin+location.pathname+'#room='+room;
+ let link;try{link=cloudMode?cloudInviteLink():location.origin+location.pathname+'#room='+room}catch(e){toast(e.message);return}
  if(navigator.share){
   try{await navigator.share({title:'A little date night? ♡',text:'Come join me in Love Arcade.',url:link});return}
   catch(e){if(e.name==='AbortError')return}
@@ -620,9 +620,9 @@ function resendPendingMessages(){
  for(const m of messages.filter(x=>x.who===(host?0:1)&&x.delivered===false))
  send({type:'message',id:m.id,text:m.text});
 }
-async function copyInvite(){const link=location.origin+location.pathname+'#room='+room;try{await navigator.clipboard.writeText(link);toast('Invite copied. Send it to your partner!')}catch{modal('Copy this invite',link)}}
-function leave(sendNotice=true){if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';connectionIssue='';incomingAttemptAt=0;roomOpenedAt=0;helpAutoShown=false;localView='home';lastSharedContext='';dockExpanded=false;setDockExpanded(false);$('privateMenu').open=false;$('welcome').hidden=false;$('room').hidden=true;$('room').dataset.stage='waiting';$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
-function refreshVoice(){const states={off:'Voice is off',request:'Requesting microphone…',outgoing:'Ringing your partner…',incoming:'Incoming voice call',connecting:'Connecting voice…',connected:micMuted?'Your mic is muted':'Voice connected'};$('voicestate').textContent=states[voice];$('voicedot').className='voice-dot'+(voice==='connected'?' live':'');$('voicedetail').textContent=voice==='connected'?partnerMicMuted?'Partner mic muted':playbackBlocked?'Tap Sound to enable playback':'Live, private audio':voice==='off'?'Stay close, even from afar':'Microphone consent required';$('callbanner').hidden=voice!=='incoming';$('callinvite').textContent=partner+' wants to talk 💗';$('call').disabled=!online()||voice!=='off';$('hangup').disabled=voice==='off';$('mic').disabled=!(stream&&stream.getAudioTracks().some(track=>track.readyState==='live'));$('speaker').disabled=voice!=='connected';$('mic').setAttribute('aria-pressed',String(micMuted));$('speaker').setAttribute('aria-pressed',String(soundMuted));$('mic').innerHTML=svg(micMuted?'micoff':'mic')+'<span>'+(micMuted?'Unmute':'Mute')+'</span>';$('speaker').innerHTML=svg(soundMuted?'voloff':'volume')+'<span>'+(soundMuted?'Unmute':'Sound')+'</span>';
+async function copyInvite(){let link;try{link=cloudMode?cloudInviteLink():location.origin+location.pathname+'#room='+room}catch(e){toast(e.message);return}try{await navigator.clipboard.writeText(link);toast('Invite copied. Send it to your partner!')}catch{modal('Copy this private invitation',link)}}
+function leave(sendNotice=true){if(cloudMode){cloud?.stop({leave:sendNotice});try{sessionStorage.removeItem(cloudStoreKey)}catch{};cloudRoomToken='';cloudInviteToken='';cloudPartnerOnline=false;cloudApproved=false;cloudRemoteVoiceId='';cloudVoiceIDSent=false}else if(sendNotice)send({type:'left'});watchController.dispose();lastExperienceSignature='';active=false;connected=false;blocked=false;closed=false;stopVoice(false);clearTimeout(connectionTimer);clearTimeout(retryTimer);clearTimeout(hideTimer);peer?.destroy();peer=null;conn=null;S=fresh();messages=[];messageIds.clear();drafts={};guestSession='';partner='Your partner';connectionIssue='';incomingAttemptAt=0;roomOpenedAt=0;helpAutoShown=false;localView='home';lastSharedContext='';dockExpanded=false;setDockExpanded(false);$('privateMenu').open=false;$('welcome').hidden=false;$('room').hidden=true;$('room').dataset.stage='waiting';$('dock').hidden=true;$('chatpanel').hidden=true;$('chatbackdrop').hidden=true;$('entryerror').textContent='';busy(false);history.replaceState(null,'',location.pathname);scrollTo({top:0,behavior:'instant'})}
+function refreshVoice(){const states={off:'Voice is off',request:'Requesting microphone…',outgoing:'Ringing your partner…',incoming:'Incoming voice call',connecting:'Connecting voice…',connected:micMuted?'Your mic is muted':'Voice connected'};$('voicestate').textContent=states[voice];$('voicedot').className='voice-dot'+(voice==='connected'?' live':'');$('voicedetail').textContent=voice==='connected'?partnerMicMuted?'Partner mic muted':playbackBlocked?'Tap Sound to enable playback':'Live, private audio':voice==='off'?'Stay close, even from afar':'Microphone consent required';$('callbanner').hidden=voice!=='incoming';$('callinvite').textContent=partner+' wants to talk 💗';$('call').disabled=!online()||voice!=='off'||(cloudMode&&(!peer?.open||!cloudRemoteVoiceId));$('call').title=cloudMode?'Optional direct voice; some mobile networks require a TURN relay. Games and chat are server-connected.':'Start a private voice call';$('hangup').disabled=voice==='off';$('mic').disabled=!(stream&&stream.getAudioTracks().some(track=>track.readyState==='live'));$('speaker').disabled=voice!=='connected';$('mic').setAttribute('aria-pressed',String(micMuted));$('speaker').setAttribute('aria-pressed',String(soundMuted));$('mic').innerHTML=svg(micMuted?'micoff':'mic')+'<span>'+(micMuted?'Unmute':'Mute')+'</span>';$('speaker').innerHTML=svg(soundMuted?'voloff':'volume')+'<span>'+(soundMuted?'Unmute':'Sound')+'</span>';
  $('dockTraySignal').className='dock-tray-signal'+(voice==='connected'?' live':voice!=='off'?' connecting':'');
  $('dockToggle').title=voice==='connected'?'Voice connected · '+(dockExpanded?'hide controls':'show controls'):(dockExpanded?'Hide voice and chat controls':'Show voice and chat controls')
 }
@@ -630,14 +630,14 @@ function stopVoice(notify=true){if(notify&&voiceId)send({type:'voice-end',id:voi
 async function microphone(){if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('Microphone requires HTTPS and a supported browser');return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false})}
 function attachMic(s){stream=s;micMuted=false;s.getAudioTracks().forEach(t=>{t.enabled=true;t.onended=()=>{if(stream===s)stopVoice(true)}})}
 function timeoutVoice(){clearTimeout(callTimeout);const token=voiceToken;callTimeout=setTimeout(()=>{if(token===voiceToken&&voice!=='connected'){stopVoice(true);toast('Voice timed out. Try calling again.')}},30000)}
-async function startVoice(){if(!online()||voice!=='off')return;voice='request';voiceId=uid();const token=++voiceToken;refreshVoice();try{const s=await microphone();if(token!==voiceToken||!online()){s.getTracks().forEach(t=>t.stop());return}attachMic(s);voice='outgoing';send({type:'voice-invite',id:voiceId});timeoutVoice();refreshVoice()}catch(e){stopVoice(true);toast(e.name==='NotAllowedError'?'Please allow microphone access in your browser.':'Cannot start microphone: '+e.message)}}
+async function startVoice(){if(!online()||voice!=='off')return;if(cloudMode&&(!peer?.open||!cloudRemoteVoiceId)){toast('Voice is not connected yet. Games and chat remain available.');return}voice='request';voiceId=uid();const token=++voiceToken;refreshVoice();try{const s=await microphone();if(token!==voiceToken||!online()){s.getTracks().forEach(t=>t.stop());return}attachMic(s);voice='outgoing';send({type:'voice-invite',id:voiceId});timeoutVoice();refreshVoice()}catch(e){stopVoice(true);toast(e.name==='NotAllowedError'?'Please allow microphone access in your browser.':'Cannot start microphone: '+e.message)}}
 async function acceptVoice(){if(voice!=='incoming'||!online())return;voice='request';const token=++voiceToken;refreshVoice();try{const s=await microphone();if(token!==voiceToken||!online()){s.getTracks().forEach(t=>t.stop());return}attachMic(s);voice='connecting';send({type:'voice-accept',id:voiceId});timeoutVoice();refreshVoice()}catch(e){stopVoice(true);toast('Microphone permission is required for voice chat.')}}
 function wireCall(c){call=c;c.on('stream',async remote=>{if(call!==c)return;clearTimeout(callTimeout);audio.srcObject=remote;audio.muted=soundMuted;voice='connected';try{await audio.play();playbackBlocked=false}catch{playbackBlocked=true}refreshVoice()});c.on('close',()=>{if(call===c)stopVoice(false)});c.on('error',()=>{if(call===c){stopVoice(true);toast('Audio failed. Try another network.') }})}
 function receiveVoice(d){if(typeof d.id!=='string'||!/^[a-f0-9]{32}$/.test(d.id))return;if(d.type==='voice-invite'){if(voice!=='off'){
  if(voice==='outgoing'&&d.id<voiceId){stopVoice(false)}
  else {send({type:'voice-decline',id:d.id});return}
 }
-voiceId=d.id;voice='incoming';voiceToken++;timeoutVoice();refreshVoice();return}if(d.id!==voiceId)return;if(d.type==='voice-accept'&&voice==='outgoing'&&stream){voice='connecting';const c=peer.call(conn.peer,stream,{metadata:{id:voiceId}});if(c)wireCall(c);else{stopVoice(true);toast('Could not connect voice.')}refreshVoice();return}if(d.type==='voice-end'||d.type==='voice-decline'){stopVoice(false);toast('Voice call ended.');return}if(d.type==='voice-mute'){partnerMicMuted=!!d.value;refreshVoice()}}
+voiceId=d.id;voice='incoming';voiceToken++;timeoutVoice();refreshVoice();return}if(d.id!==voiceId)return;if(d.type==='voice-accept'&&voice==='outgoing'&&stream){voice='connecting';const c=peer?.call(cloudMode?cloudRemoteVoiceId:conn?.peer,stream,{metadata:{id:voiceId}});if(c)wireCall(c);else{stopVoice(true);toast('Could not connect voice.')}refreshVoice();return}if(d.type==='voice-end'||d.type==='voice-decline'){stopVoice(false);toast('Voice call ended.');return}if(d.type==='voice-mute'){partnerMicMuted=!!d.value;refreshVoice()}}
 try{$('nickname').value=localStorage.getItem('la-name')||''}catch{}
 const inviteParam=new URLSearchParams(location.hash.slice(1)).get('room')||new URLSearchParams(location.search).get('room');
 if(inviteParam){
@@ -652,7 +652,7 @@ if(inviteParam){
   // slow mobile networks. Retry loading before attempting automatic joining.
   const tryInvite=(attempt=0)=>{
    if(active)return;
-   if(window.Peer){create(false);return}
+   if(cloudMode||window.Peer){create(false);return}
    if(attempt<40){setTimeout(()=>tryInvite(attempt+1),250);return}
    $('entryerror').textContent='The multiplayer service is taking too long. Refresh or tap Join.';
   };
