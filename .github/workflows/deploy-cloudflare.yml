@@ -1,0 +1,49 @@
+name: Deploy Cloudflare Room Server
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DEPLOY to publish the Cloudflare Worker (does not enable the frontend)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-room-server-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirmation == 'DEPLOY' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install application dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify JavaScript and multiplayer protocol tests
+        run: npm run verify
+      - name: Verify Cloudflare token secret exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::First add CLOUDFLARE_API_TOKEN under GitHub repository Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+      - name: Deploy to existing Cloudflare Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 deploy --config wrangler.jsonc
+      - name: Verify public backend health
+        run: |
+          curl --fail --silent --show-error --retry 4 --retry-delay 3 \
+            https://love-arcade-server.azhardotcoder.workers.dev/health \
+            | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{const j=JSON.parse(s);if(j.ok!==true||j.transport!=="websocket"){console.error("Cloudflare health check failed");process.exit(1)}console.log("Love Arcade Worker is healthy")})'
