@@ -295,7 +295,7 @@ export default {
     const url=new URL(request.url);
     const origin=request.headers.get('Origin');
     const allowed=env.ALLOWED_ORIGINS||
-      'https://love-arcade-generated-by-ai.vercel.app,http://localhost:4173,http://127.0.0.1:4173';
+      'https://lovearcade.azhardev.in,https://love-arcade-generated-by-ai.vercel.app,http://localhost:4173,http://127.0.0.1:4173';
     if(url.pathname==='/health'&&request.method==='GET')
       return json({ok:true,service:'love-arcade-server',version:ROOM_VERSION,transport:'websocket'},200,safeOrigin(origin,allowed)?origin:null);
     if(!safeOrigin(origin,allowed))return json({error:'Origin not allowed'},403);
