@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 
 const base='http://127.0.0.1:8788';
-const origin='http://localhost:4173';
+const origin='https://lovearcade.azhardev.in';
 const health=await fetch(base+'/health');
 assert.equal(health.status,200);
 assert.equal((await health.json()).transport,'websocket');
@@ -11,8 +11,25 @@ assert.equal((await health.json()).transport,'websocket');
 const hostile=await fetch(base+'/api/rooms',{method:'POST',headers:{Origin:'https://wrong.example','Content-Type':'application/json'},body:'{}'});
 assert.equal(hostile.status,403,'Untrusted browser origins must be blocked');
 
+const preflight=await fetch(base+'/api/rooms',{
+ method:'OPTIONS',
+ headers:{Origin:origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type'}
+});
+assert.equal(preflight.status,204,'Production domain CORS preflight must succeed');
+assert.equal(preflight.headers.get('access-control-allow-origin'),origin);
+assert.match(preflight.headers.get('access-control-allow-methods'),/POST/);
+assert.match(preflight.headers.get('access-control-allow-headers'),/Content-Type/i);
+
+const deniedPreflight=await fetch(base+'/api/rooms',{
+ method:'OPTIONS',
+ headers:{Origin:'https://lovearcade.azhardev.in.evil.example','Access-Control-Request-Method':'POST'}
+});
+assert.equal(deniedPreflight.status,403,'Lookalike production origins must be denied');
+assert.equal(deniedPreflight.headers.get('access-control-allow-origin'),null);
+
 const create=await fetch(base+'/api/rooms',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({name:'Test Host'})});
 assert.equal(create.status,201);
+assert.equal(create.headers.get('access-control-allow-origin'),origin,'Room creation must emit production CORS header');
 const room=await create.json();
 assert.match(room.code,/^\d{6}$/);
 assert.match(room.hostToken,/^[a-f0-9]{64}$/);
