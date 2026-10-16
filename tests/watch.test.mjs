@@ -27,7 +27,7 @@ test('lounge state validates open/close and game isolation',()=>{
  a=room(a,1,'close');assert.equal(a.watch.open,false);
  a=reduce(a,{type:'start',game:'truth',epoch:a.epoch,round:a.round},0);
  assert.equal(a.game,'truth');assert.equal(room(a,0,'open'),null);
- assert.equal(Object.keys(GAMES).length,11);
+ assert.equal(Object.keys(GAMES).length,13);
 });
 
 test('two peers build and manage bounded shared queue',()=>{
