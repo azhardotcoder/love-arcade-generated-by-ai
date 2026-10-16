@@ -1,6 +1,7 @@
 import {startChess,reduceChess} from './chess.mjs';
 import {initialLounge,reduceLounge} from './watch.mjs';
 import {PACK_IDS,newCoupleGame,reduceCouple,coupleView} from './couples-games.mjs';
+import {BOND_IDS,newBondGame,reduceBond,bondView} from './bond-games.mjs';
 let ChessConstructor=null;
 export function registerChessRules(Chess){ChessConstructor=Chess}
 export const GAMES={
@@ -14,7 +15,9 @@ export const GAMES={
  xoxo:{title:'XOXO Battle',desc:'Hearts versus kisses in a playful best-of-many battle.',icon:'⊗',theme:'violet',label:'QUICK DUEL'},
  bottle:{title:'Spin the Love Bottle',desc:'Spin for a cute, romantic, flirty or funny challenge.',icon:'↻',theme:'peach',label:'A LITTLE SPARK'},
  escape:{title:'Together We Escape',desc:'Combine two private clues to escape four romantic rooms.',icon:'⚿',theme:'blue',label:'CO-OP PUZZLES'},
- date:{title:'Dream Date Builder',desc:'Make secret choices and reveal your perfect evening.',icon:'✧',theme:'mint',label:'BUILD A DATE'}};
+ date:{title:'Dream Date Builder',desc:'Make secret choices and reveal your perfect evening.',icon:'✧',theme:'mint',label:'BUILD A DATE'},
+ heartsync:{title:'HeartSync',desc:'Ten romantic questions. Secret predictions. Discover how well you know each other.',icon:'♥',theme:'rose',label:'READ MY HEART'},
+ stars:{title:'Touch the Same Star',desc:'Share one magical sky, choose glowing stars, and create a couple constellation.',icon:'✦',theme:'blue',label:'ONE SHARED SKY'}};
 export const TRUTHS=[
 'What tiny thing I do gives you butterflies?','What was your first impression of me?','Which memory of us would you relive tonight?','What makes you feel most loved by me?','What is our dream date?','What song feels like our story?','Which silly habit of mine do you secretly love?','What do you hope we do together next year?','When did I make you laugh when you really needed it?','What compliment from me has stayed with you?','Describe your dream lazy Sunday with me.','What is your favorite way to be comforted?','Where should we go on our next adventure?','What is one small way we could grow closer?','What is your favorite inside joke of ours?','What part of our future excites you most?','What kind thing do I do that I might not notice?','How would you describe our relationship in three words?'];
 export const DARES=[
@@ -25,8 +28,8 @@ export const RATHER=[
 ['A golden-hour picnic','A cozy movie night'],['A mountain cabin','A beachside cottage'],['A surprise road trip','A carefully planned vacation'],['Matching bracelets','A scrapbook of memories'],['Dancing in the kitchen','Stargazing on a rooftop'],['A handwritten love letter','A surprise date'],['Cooking dinner together','Discovering a new cafe'],['Revisit our first date','Try a brand-new adventure'],['Slow mornings together','Late-night heart-to-hearts'],['A midnight ice-cream run','A sunset walk']];
 export const SYMBOLS=['💗','🌹','🌙','💌','🎵','✨'];
 export const shuffled=a=>{const c=a.slice();for(let i=c.length-1;i>0;i--){const r=crypto.getRandomValues(new Uint32Array(1))[0];const j=r%(i+1);[c[i],c[j]]=[c[j],c[i]]}return c};
-export function fresh(){return {rev:0,epoch:0,game:null,round:1,phase:'choose',turn:0,kind:'',task:'',reply:'',answers:[null,null],ready:[false,false],score:[0,0],hearts:0,board:[],open:[],found:[],moves:0,feedback:'',used:{truth:[],dare:[]},chess:null,couple:null,watch:initialLounge()}}
-const reset=(s,g)=>{s.game=g;s.epoch++;s.round=1;s.phase=g==='truth'?'choose':'answer';s.turn=0;s.kind='';s.task='';s.reply='';s.answers=[null,null];s.ready=[false,false];s.board=g==='match'?shuffled([...SYMBOLS,...SYMBOLS]):[];s.open=[];s.found=[];s.moves=0;s.feedback='';s.used={truth:[],dare:[]};s.chess=g==='chess'?startChess('rapid'):null;s.couple=PACK_IDS.includes(g)?newCoupleGame(g):null};
+export function fresh(){return {rev:0,epoch:0,game:null,round:1,phase:'choose',turn:0,kind:'',task:'',reply:'',answers:[null,null],ready:[false,false],score:[0,0],hearts:0,board:[],open:[],found:[],moves:0,feedback:'',used:{truth:[],dare:[]},chess:null,couple:null,bond:null,watch:initialLounge()}}
+const reset=(s,g)=>{s.game=g;s.epoch++;s.round=1;s.phase=g==='truth'?'choose':'answer';s.turn=0;s.kind='';s.task='';s.reply='';s.answers=[null,null];s.ready=[false,false];s.board=g==='match'?shuffled([...SYMBOLS,...SYMBOLS]):[];s.open=[];s.found=[];s.moves=0;s.feedback='';s.used={truth:[],dare:[]};s.chess=g==='chess'?startChess('rapid'):null;s.couple=PACK_IDS.includes(g)?newCoupleGame(g):null;s.bond=BOND_IDS.includes(g)?newBondGame(g):null};
 export function reduce(state,a,seat){
  if(!a||typeof a!=='object'||![0,1].includes(seat)||!Number.isInteger(a.epoch)||!Number.isInteger(a.round))return null;
  if(a.epoch!==state.epoch||a.round!==state.round)return null;
@@ -55,6 +58,11 @@ export function reduce(state,a,seat){
  if(s.game==='escape'&&next.phase==='solved'&&s.couple.phase==='puzzle')s.hearts++;
  if(s.game==='date'&&next.phase==='reveal'&&s.couple.phase==='pick')s.hearts++;
  s.couple=next;
+ }else if(a.type==='bond'){
+  if(!BOND_IDS.includes(s.game)||!s.bond)return null;
+  const next=reduceBond(s.bond,a,seat);if(!next)return null;
+  if(next.phase==='reveal'&&s.bond.phase!=='reveal')s.hearts++;
+  s.bond=next;
  }else if(a.type==='pick'){
   if(s.game!=='truth'||s.phase!=='choose'||s.turn!==seat||!['truth','dare'].includes(a.kind))return null;
   const list=a.kind==='truth'?TRUTHS:DARES;let pool=list.map((_,i)=>i).filter(i=>!s.used[a.kind].includes(i));
@@ -99,6 +107,7 @@ export function viewForSeat(state,seat) {
  if (![0,1].includes(seat)) throw new TypeError('Invalid player seat');
  const visible=structuredClone(state);
  if(PACK_IDS.includes(visible.game))visible.couple=coupleView(visible.couple,seat);
+ if(BOND_IDS.includes(visible.game))visible.bond=bondView(visible.bond,seat);
  if (visible.game==='chess'&&visible.chess){visible.chess.moves=visible.chess.moves.map(({clockBefore,...ply})=>ply)}
  if (visible.game==='match') {
   visible.board=visible.board.map((symbol,index)=>
