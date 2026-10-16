@@ -93,3 +93,16 @@ body:has(#room:not([hidden])) .shell{max-width:1250px}
  #room[data-stage="activity"] .session-stat span{display:none}
 }
 @media(prefers-reduced-motion:reduce){.orbit-one,.waiting-pulse{animation:none}}
+
+
+/* Transparent cross-network connection help. Quiet until requested or prolonged wait. */
+.connection-help{max-width:470px;margin:18px auto 4px;text-align:left;border:1px solid #ffffff28;border-radius:13px;background:#171524a8;overflow:hidden}
+.connection-help summary{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;padding:12px 15px;font-weight:650;color:#eccde2;font-size:12px;list-style:none}
+.connection-help summary::-webkit-details-marker{display:none}
+.connection-help summary:focus-visible{outline:2px solid #f7bfdc;outline-offset:-3px}
+.connection-help[open] summary{border-bottom:1px solid #ffffff18}
+.connection-help[open] summary span{transform:rotate(180deg)}
+.connection-help-body{padding:13px 15px 16px}
+.connection-help-body p{margin:0 0 12px!important;font-size:11px!important;line-height:1.65!important;color:#c6b9d1!important;text-align:left}
+.connection-retry:not([hidden]){display:block;width:100%;min-height:43px;margin-top:8px;border-radius:10px;font-size:12px}
+@media(max-width:580px){.connection-help{margin:14px auto 5px}.connection-help summary{padding:11px 12px}.connection-help-body{padding:12px}.connection-help-body p{font-size:10px!important}}
