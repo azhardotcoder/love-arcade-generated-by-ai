@@ -274,7 +274,7 @@ body:has(#room:not([hidden])) .shell{max-width:1150px;padding-inline:clamp(17px,
 #room[data-stage="activity"] .xoxo-cell,
 #room[data-stage="activity"] .date-option{
   box-shadow:none;
-  background-color:#252634;
+  background:#242835;
 }
 #room[data-stage="activity"] #watch{margin:0 auto;max-width:1150px}
 #room[data-stage="activity"] #watch .watch-head{margin:0 0 16px;padding:0;border:0}
