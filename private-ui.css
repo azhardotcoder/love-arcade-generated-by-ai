@@ -107,13 +107,13 @@ body:has(#room:not([hidden])) .shell{max-width:1150px;padding-inline:clamp(17px,
 #room[data-stage="activity"] #watch{margin-top:16px}
 
 /* Floating right-anchored control tray, collapsible without disrupting voice. */
-#dock:not([hidden]){position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:auto;right:clamp(12px,3vw,34px);transform:none;width:auto;max-width:calc(100vw - 24px);z-index:40;background:transparent;border:0;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0;overflow:visible}
+#dock:not([hidden]){position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:auto;right:clamp(12px,3vw,34px);transform:none;width:auto;max-width:calc(100vw - 24px);z-index:40;flex-direction:row;flex-wrap:nowrap;background:transparent;border:0;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0;overflow:visible}
 #dock .dock-panel{display:flex;align-items:center;gap:14px;border:1px solid #ffffff30;border-radius:18px;background:#252934f5;box-shadow:0 15px 35px #0008;backdrop-filter:blur(16px);padding:11px 13px;min-width:0;max-width:720px;transform:translateX(0);opacity:1;visibility:visible;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .2s ease,visibility .3s,max-width .3s,padding .3s,border-width .3s;overflow:hidden;white-space:nowrap}
 #dock[data-collapsed="true"] .dock-panel{max-width:0;padding:0;border-width:0;opacity:0;visibility:hidden;transform:translateX(55px);pointer-events:none}
 #dock .dock-panel .voice-summary{min-width:135px;flex-shrink:0}
 #dock .dock-panel .voice-summary b{font-size:11px}
-#dock .dock-panel .dockactions{flex-shrink:0;gap:5px}
-#dock .dock-panel .dockbtn{min-width:49px;min-height:48px;border-radius:11px;gap:3px}
+#dock .dock-panel .dockactions{width:auto;display:flex;flex-wrap:nowrap;justify-content:flex-start;flex-shrink:0;gap:5px}
+#dock .dock-panel .dockbtn{flex:0 0 auto;min-width:49px;min-height:48px;border-radius:11px;gap:3px}
 #dock .dock-panel .dockbtn svg{width:17px;height:17px}
 #dock .dock-panel .dockbtn span{font-size:9px}
 #dock .dock-panel .dockbtn.chatbutton{background:#f1b3d0;color:#30213a;box-shadow:none}
