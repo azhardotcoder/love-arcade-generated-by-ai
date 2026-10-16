@@ -42,7 +42,7 @@ async function connectPair(context, hostName='Alex', guestName='Sky'){
  await guest.locator('#join').click();
  await expect(host.locator('#theirname')).toHaveText(guestName,{timeout:15000});
  await expect(guest.locator('#theirname')).toHaveText(hostName,{timeout:15000});
- await expect(host.locator('#room')).toHaveAttribute('data-stage','lounge');
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','home');
  return {host,guest};
 }
 
@@ -65,18 +65,28 @@ test('two browser tabs share approval-based Truth or Dare and chat',async({conte
  await expect(guest.locator('#theirname')).toHaveText('Alex',{timeout:12000});
  await expect(host.locator('#theirstatus')).toContainText('Online');
  await expect(guest.locator('#theirstatus')).toContainText('Online');
- await expect(host.locator('#room')).toHaveAttribute('data-stage','lounge');
- await expect(guest.locator('#room')).toHaveAttribute('data-stage','lounge');
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','home');
+ await expect(guest.locator('#room')).toHaveAttribute('data-stage','home');
+ await expect(host.locator('#homeGames')).toBeVisible();
+ await expect(host.locator('#homeWatch')).toBeVisible();
+ await expect(host.locator('#homeChat')).toBeVisible();
+ await expect(host.locator('#lobby')).toBeHidden();
+ await expect(host.locator('#privateHeader')).toBeVisible();
  await expect(host.locator('#waitingRoom')).toBeHidden();
  await expect(guest.locator('#waitingRoom')).toBeHidden();
  await expect(host.locator('#lounge')).toHaveCount(0);
+ await host.locator('#homeGames').click();
+ await expect(host.locator('#room')).toHaveAttribute('data-stage','games');
+ await expect(host.locator('#lobby')).toBeVisible();
+ await expect(guest.locator('#privateHome')).toBeVisible();
  await host.locator('#featured').click();
  await expect(host.locator('#game')).toBeVisible();
  await expect(guest.locator('#game')).toBeVisible();
  await expect(host.locator('#room')).toHaveAttribute('data-stage','activity');
  await expect(guest.locator('#room')).toHaveAttribute('data-stage','activity');
  await expect(host.locator('#lobby')).toBeHidden();
- await expect(host.locator('#activityHeading')).toBeVisible();
+ await expect(host.locator('#privateHeader')).toBeVisible();
+ await expect(host.locator('#privateHome')).toBeHidden();
  await host.locator('[data-do="truth"]').click();
  await expect(guest.locator('[data-do="approve"]')).toHaveCount(0);
  await expect(host.locator('[data-do="complete"]')).toBeVisible();
@@ -87,9 +97,12 @@ test('two browser tabs share approval-based Truth or Dare and chat',async({conte
  await expect(host.locator('#roundlabel')).toHaveText('ROUND 02');
  await expect(guest.locator('#roundlabel')).toHaveText('ROUND 02');
  await expect(guest.locator('[data-do="truth"]')).toBeVisible();
+ await host.locator('#dockToggle').click();
+ await expect(host.locator('#dockToggle')).toHaveAttribute('aria-expanded','true');
  await host.locator('#chatopen').click();
  await host.locator('#chatinput').fill('This is a sweet message!');
  await host.locator('#chatform').getByRole('button',{name:'Send message'}).click();
+ await guest.locator('#dockToggle').click();
  await guest.locator('#chatopen').click();
  await expect(guest.locator('#chatlog')).toContainText('This is a sweet message!');
  await guest.close();await host.close();
@@ -113,6 +126,7 @@ test('two players play legal chess moves and agree a draw and rematch',async({co
  await guest.locator('#join').click();
  await expect(host.locator('#theirstatus')).toContainText('Online');
  await expect(guest.locator('#theirstatus')).toContainText('Online');
+ await host.locator('#homeGames').click();
  await host.locator('[data-game=chess]').click();
  await expect(host.locator('.chess-board .chess-square')).toHaveCount(64,{timeout:12000});
  await expect(guest.locator('.chess-board .chess-square')).toHaveCount(64,{timeout:12000});
@@ -166,7 +180,9 @@ test('invalid invite stays on entry screen instead of creating a room',async({pa
 test('five new games remain synchronized across two browser players',async({context})=>{
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
  const {host:h,guest:g}=await connectPair(context,'Alex','Sky');
- // XOXO: each turn validated, result shared, then both return to library.
+ // XOXO: choose the catalogue locally before starting the shared game.
+ await h.locator('#homeGames').click();
+ await expect(g.locator('#privateHome')).toBeVisible();
  await h.locator('[data-game=xoxo]').click();
  await expect(g.locator('.xoxo-grid .xoxo-cell')).toHaveCount(9);
  for(const [page,i] of [[h,0],[g,3],[h,1],[g,4],[h,2]])await page.locator('[data-xoxo="'+i+'"]').click();
@@ -245,7 +261,7 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
  `.slice(1,-1)});
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
  const {host,guest}=await connectPair(context,'Alex','Jamie');
- await host.locator('#watchLaunch').click();
+ await host.locator('#homeWatch').click();
  await expect(host.locator('#watch')).toBeVisible();
  await expect(guest.locator('#watch')).toBeVisible();
  await expect(host.locator('#lobby')).toBeHidden();
@@ -278,15 +294,16 @@ test('Watch Together: two players queue videos, ready up, synchronize playback a
  await expect(host.locator('#watchReady')).toBeEnabled();
  await expect(host.locator('#watchStatus')).toContainText('Ready check');
  await host.locator('#watchClose').click();
- await expect(guest.locator('#lobby')).toBeVisible();
+ await expect(guest.locator('#privateHome')).toBeVisible();
  await expect(host.locator('#watch')).toBeHidden();
+ await expect(host.locator('#privateHome')).toBeVisible();
  await host.close();await guest.close();
 });
 
 test('Watch Together: malformed YouTube URLs are rejected without changing the queue',async({context})=>{
  await context.route('**/unpkg.com/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:peerStub}));
  const {host,guest}=await connectPair(context,'Sweetheart','Viewer');
- await host.locator('#watchLaunch').click();
+ await host.locator('#homeWatch').click();
  await guest.locator('#watchUrl').fill('https://youtube.com.evil.example/watch?v=jfKfPfyJRdk');
  await guest.locator('#watchAdd').click();
  await expect(guest.locator('#watchQueue')).toContainText('Nothing queued yet');
