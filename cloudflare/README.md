@@ -1,6 +1,6 @@
 # Cloudflare multiplayer backend (staged migration)
 
-This folder contains the **server-authoritative multiplayer backend** for Love Arcade. It is currently a **staged migration**, not the production connection path. The existing Vercel frontend continues to use PeerJS until the Cloudflare Worker has been deployed, checked, and a client migration is explicitly enabled.
+This folder contains the **server-authoritative multiplayer backend** for Love Arcade. The Worker is deployed and its health endpoint has been verified. The repository frontend now defaults to Cloudflare WebSockets on production domains, using `cloud-client.mjs`; the **public Vercel deployment must be updated to the latest GitHub commit** before visitors receive the new transport. Legacy PeerJS remains a temporary opt-in fallback for games, and optional audio still uses PeerJS/WebRTC.
 
 ## Account and Worker
 
@@ -21,7 +21,7 @@ This folder contains the **server-authoritative multiplayer backend** for Love A
 4. From the repository's **Actions** tab, run the manual workflow **Deploy Cloudflare Room Server**. This targets the existing `love-arcade-server` Worker.
 5. Verify `https://love-arcade-server.azhardotcoder.workers.dev/health` returns a JSON object whose `ok` property is `true`.
 
-The dedicated deployment workflow is **manual only** and never publishes automatically on `main`. The existing Vercel frontend will not switch networking merely because the Worker is deployed.
+The dedicated deployment workflow is **manual only** and never publishes automatically on `main`. The Vercel frontend must also be updated to a commit containing the new `cloud-client.mjs` integration; backend deployment alone does not change an older frontend.
 
 ## API and authentication
 
@@ -49,13 +49,24 @@ Server events: `welcome`, `pending`, `join-request`, `presence`, `state`, `chat`
 
 Rooms expire after six hours of inactivity, subject to an absolute 24-hour limit. WebSocket Hibernation keeps inactive connections from continuously consuming billable duration. A closed tab can reconnect to the retained room using its long session token while the room is still alive.
 
-## Frontend rollout (not yet switched)
+## Frontend integration and release
 
-1. Add a Cloudflare WebSocket client to the Vercel frontend, with token storage, host approval UI and automatic reconnect/resume.
-2. Route game actions and chat to the Worker, and render its authoritative per-seat state rather than trusting the host browser.
-3. Keep existing voice signaling separate; TURN or managed voice is still required to guarantee reliable voice calls across restrictive mobile networks.
-4. Test two physical phones on different networks, including sharing invite links, approving code-only joins, each player reconnecting, stale actions, chat and all games.
-5. Switch on the new transport only after those tests and production deployment verification. The existing PeerJS transport must remain available for rollback until then.
+The frontend implementation is in `cloud-client.mjs` and `app.mjs`. It creates private six-digit rooms, requests host approval for code-only joins, sends moves/chat to the authoritative Worker, restores state after reconnecting, and shares invite tokens only in URL fragments.
+
+1. Verify the Worker health endpoint reports `ok:true`.
+2. Publish the **latest GitHub `main` commit** on Vercel production.
+3. Test both physical phones over different networks, then test refreshing each one, losing connectivity, host approval and the full game catalogue.
+4. Voice signaling is sent via the Worker but optional voice **media still uses direct WebRTC** and may need a TURN relay.
+5. If a frontend rollout needs rollback, `?transport=peer` opts into legacy PeerJS data transport for a **separate** legacy room, not the existing Cloudflare room.
+
+### Local Cloudflare browser testing
+
+```sh
+npm install
+npx wrangler@4 dev --config wrangler.jsonc --port 8788 --ip 127.0.0.1 --local
+```
+
+Serve the repository statically at `http://127.0.0.1:4173`, then open `/?transport=cloudflare&backend=http%3A%2F%2F127.0.0.1%3A8788` on two browser tabs. CI also runs real local Durable Object two-browser Playwright tests.
 
 ## Limits and security
 
